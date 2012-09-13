@@ -242,14 +242,15 @@ you can remove index but all presents files on the box %s will be unrecoverable
                                 print('bye')
                                 sys.exit(1)                        
                     
-                        if o.list :
-                            
+                        if o.list :                            
                             if impst.index != None:
                                 impst.index.print(True,'-'*120+'\n -- INDEX '+impst.rootBox+'\n'+'-'*120)
                         elif o.add :
                             impst.addFile(o.add[0],o.add[1],o.user,o.category)
+
                         elif o.get :
                             impst.getFile(o.get)
+
                         elif o.get_by_id :
                             label = impst.index.searchById(o.get_by_id)
                             if label !=None :
@@ -258,10 +259,13 @@ you can remove index but all presents files on the box %s will be unrecoverable
                             
                         elif o.search :
                             print(o.search)
+
                         elif o.remove :
                             print(o.remove)
+
                         elif o.remove_by_id :
                             print(o.remove_by_id)
+
 
                     #~ filePath = '/media/Data/dev/big_toph3.jpg' 
                     #~ lab = 'Meuf\'bonne aussi4' 

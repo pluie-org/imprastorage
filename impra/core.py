@@ -256,7 +256,7 @@ class ImpraIndex:
         if encdata =='' : data = encdata
         else : data = self.rsa.decrypt(encdata)
         data = data.replace(self.QUOTE_REPL, '\'')
-        ld   = regsplit('\n? ?'+self.SEP_CATEGORY+' ?\n?',data)
+        ld   = regsplit('\n?\r? ?'+self.SEP_CATEGORY+' ?\n\r??',data)
         l    = regsplit(self.SEP_ITEM,ld[0])
         for row in l:
             d = regsplit(self.SEP_TOKEN,row)
@@ -265,11 +265,11 @@ class ImpraIndex:
             if len(d)>5 and d!='': 
                 self.dic[d[1]] = d
         if len(ld)>1:
-            l = regsplit(self.SEP_ITEM,ld[1].lstrip('\n'))
+            l = regsplit(self.SEP_ITEM,ld[1].lstrip('\n\r'))
             for row in l:
                 d = regsplit(' ?= ?',row,1)
                 if len(d)> 1 and len(d[0]) > 3 :
-                    self.dic[d[0]] = d[1]
+                    self.dic[d[0].lstrip('\n\r')] = d[1]
         else: 
             for k in dicCategory : 
                 self.dic[self.SEP_KEY_INTERN+k] = dicCategory[k]
@@ -306,17 +306,20 @@ class ImpraIndex:
         data   = cdata = ''
         for k in sorted(self.dic):           
             v = self.dic.get(k)
+            k = k.lstrip('\n\r')
             if k[0]==self.SEP_KEY_INTERN and len(k)>1:
                 cdata += k+'='+v+self.SEP_ITEM
             else :        
                 if not idFirst :
-                    for i in v: data += str(i)+self.SEP_TOKEN
+                    for i in v: 
+                        data += str(i)+self.SEP_TOKEN
                 else :
                     data += str(v[6]).rjust(1+ceil(len(str(v[6]))/10),' ')+' '
-                    for i in v[:-1]: data += str(i)+self.SEP_TOKEN
+                    for i in v[:-1]: 
+                        data += str(i)+self.SEP_TOKEN
             data = data.rstrip(self.SEP_TOKEN)+self.SEP_ITEM
         if not withoutCatg :
-            data += self.SEP_CATEGORY+'\n'+cdata        
+            data += self.SEP_CATEGORY+'\n'+cdata
         return data;
     
     def encrypt(self):
@@ -411,7 +414,8 @@ class ImpraStorage:
         """"""
         self._getIdIndex()
         if self.idx :
-            self.ih.delete(self.idx)
+            self.ih.delete(self.idx, True)
+        self.ih.deleteBin()
 
     def saveIndex(self):
         """"""

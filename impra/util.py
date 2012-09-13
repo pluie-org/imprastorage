@@ -33,13 +33,13 @@ from hashlib    import sha256
 from math       import log, floor, ceil
 from random     import choice
 from os         import urandom, popen, sep
-from os.path    import dirname, realpath, abspath
+from os.path    import dirname, realpath, abspath, join
 from time       import time
 from re         import split as regsplit
 from base64     import urlsafe_b64encode
 from inspect    import stack
 from subprocess import PIPE, Popen
-from sys        import stderr
+from sys        import stderr, executable as pyexec
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -58,6 +58,12 @@ def quote_escape(data):
     :Returns: `str`
     """
     return data.replace('\'', r'\'')
+    
+def linefeed_escape(data):
+    """Escape simple quote
+    :Returns: `str`
+    """
+    return data.replace('\n', '\\n')
     
 def get_file_content(fileName):
     """Get file content of `fileName`
@@ -222,7 +228,7 @@ class RuTime:
         if DEBUG:self._stats()
     
     def _stats(self):
-        print(' <== '+self.label+(' [%.9f s]' % (self.ec - self.sc))+' <¤¤ ')
+        print(' <== '+self.label+(' [%.9f s]' % (self.ec - self.sc)))
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -331,24 +337,22 @@ class Rsa:
     """"""
     
     def __init__(self, prvKey=None, pubKey=None, dpath='./', forceKeyGen=False):
-        """"""
-        self.cpath  = dirname(realpath(__file__))+'/../desurveil/scripts/'
+        """"""        
+        self.cpath  = join(dirname(dirname(realpath(__file__))),'desurveil','scripts')+sep
         self.prvKey = prvKey
         self.pubKey = pubKey
-        self.dpath  = dpath
+        self.dpath  = realpath(dpath)+sep
         if prvKey == None or pubKey==None : self.key(forceKeyGen)
 
     def key(self,force=False):
         """"""
-        cmd = self.cpath+"desurveil key -a "+self.dpath+".impra_id_rsa -l "+self.dpath+".impra_id_rsa.pub"
-        #print(cmd)
-        
+        cmd = self.cpath+'desurveil key -a '+self.dpath+'.impra_id_rsa -l '+self.dpath+'.impra_id_rsa.pub'
         try :
             with open(self.dpath+'.impra_id_rsa','rt') as f: pass
             if force:d = popen(cmd).read()
         except IOError as e:
-            d = popen(cmd).read()
-            #print(d)
+            d = popen(pyexec+' '+cmd).read()
+            #print(pyexec+' '+cmd)
         self.prvKey = get_file_content(self.dpath+'.impra_id_rsa')
         self.pubKey = get_file_content(self.dpath+'.impra_id_rsa.pub')
         #~ print('pubKey : \n'+self.pubKey)
@@ -357,22 +361,33 @@ class Rsa:
     def encrypt(self,data):
         """"""
         key = ''
-        if self.pubKey != None : key = " -CI '"+self.pubKey+"'"
-        #if self.pubKey != None : key = " -C '"+self.dpath+".impra_id_rsa.pub'"
-        cmd = self.cpath+"desurveil encrypt -i '"+data+"'"+key
-        #print(cmd)
-        return popen(cmd).read()
+        #if self.pubKey != None : key = ' -CI "'+self.pubKey+'"'
+        if self.pubKey != None : key = ' -C "'+self.dpath+'.impra_id_rsa.pub"'
+        with open(self.dpath+'.tmpdecd', mode='w', encoding='utf-8') as o:
+            o.write(data)
+        cmd = self.cpath+'desurveil encrypt "'+self.dpath+'.tmpdecd'+'" '+key
+        #print(pyexec+' '+cmd)
+        rs = run(pyexec+' '+cmd)
+        if rs[0]==1:            
+            print(rs)
+            raise BadKeysException('bad key to encrypt')
+        else :
+            encData = str(rs[1],'utf-8')
+        return encData
 
     def decrypt(self,data):
         """"""
         key = ''
-        if self.prvKey != None : key = " -CI '"+self.prvKey+"'"
-        #if self.prvKey != None : key = " -C '"+self.dpath+".impra_id_rsa'"
-        cmd = self.cpath+"desurveil decrypt -i '"+data+"'"+key
-        
-        rs = run(cmd)
+        #if self.prvKey != None : key = ' -CI "'+self.prvKey+'"'
+        if self.prvKey != None : key = ' -C "'+self.dpath+'.impra_id_rsa"'
+        with open(self.dpath+'.tmpencd', mode='w', encoding='utf-8') as o:
+            o.write(data)
+        cmd = self.cpath+'desurveil decrypt "'+self.dpath+'.tmpencd'+'" '+key
+        #print(pyexec+' '+cmd)
+        rs = run(pyexec+' '+cmd)
         if rs[0]==1:
+            print(rs)            
             raise BadKeysException('bad key to decrypt')
         else :
-            encData = str(rs[1],'utf-8')
-        return encData
+            decData = str(rs[1],'utf-8')
+        return decData
