@@ -29,18 +29,29 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~ package util ~~
 
-from hashlib import sha256
-from math    import log, floor, ceil
-from random  import choice
-from os      import urandom, popen
-from os.path import dirname, realpath
-from time    import time
-from re      import split as regsplit
-from base64  import urlsafe_b64encode
-from inspect import stack
+from hashlib    import sha256
+from math       import log, floor, ceil
+from random     import choice
+from os         import urandom, popen, sep
+from os.path    import dirname, realpath, abspath
+from time       import time
+from re         import split as regsplit
+from base64     import urlsafe_b64encode
+from inspect    import stack
+from subprocess import PIPE, Popen
+from sys        import stderr
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~ methods ~~
+
+def represents_int(s):
+    """"""
+    try: 
+        int(s)
+        return True
+    except ValueError:
+        return False
 
 def quote_escape(data):
     """Escape simple quote
@@ -70,6 +81,10 @@ def randomFrom(val, sval=0):
     lst = list(range(sval,val))
     return choice(lst)
 
+def get_file_path(val):
+    """"""
+    return abspath(dirname(val))+sep
+
 def formatBytes(b, p=2):
     """Give a human representation of bytes size `b`
     :Returns: `str`
@@ -88,6 +103,19 @@ def formatBytes(b, p=2):
 def bstr(b,enc='utf-8'):
     """"""
     return str(b, encoding=enc)
+
+def run(cmdline):
+    """"""
+    try:
+        p = Popen(cmdline, shell=True,stdout=PIPE, stderr=PIPE)
+        cmdout, cmderr =  p.communicate()
+        rcode = p.wait()
+        if rcode < 0:
+            print((stderr,"Child was terminated by signal",rcode))
+        else:
+            return (rcode,cmdout,cmderr)
+    except OSError as e :
+        return (e,cmdout,cmderr)
 
 def __CALLER__(args=''):
     """Give basic information of caller method
@@ -174,13 +202,15 @@ class RuTime:
         self._start()
     
     def _start(self):
-        print(' ==> '+self.label)
+        from impra.core import DEBUG
+        if DEBUG :print(' ==> '+self.label)
         self.sc = time()
     
     def stop(self):
         """Stop duration and print basics stats duration on console"""
+        from impra.core import DEBUG
         self.ec = time()
-        self._stats()
+        if DEBUG:self._stats()
     
     def _stats(self):
         print(' <== '+self.label+(' [%.9f s]' % (self.ec - self.sc))+' <¤¤ ')
@@ -204,7 +234,7 @@ class IniFile:
 
     def has(self, key, section='main'):
         """"""
-        d = (key in self.dic[section])
+        d = self.hasSection(section) and (key in self.dic[section])
         return d
         
     def hasSection(self, section):
@@ -243,19 +273,21 @@ class IniFile:
         with open(path, mode='w', encoding='utf-8') as o:
             o.write(content)
 
-    def toString(self,path=None):
+    def toString(self,section='*'):
         """"""
-        if path == None : path = self.path
         content = ''
         main    = ''
         for s in self.dic:
-            if s!='main':
-                content += '\n['+s+']\n'
-            for k in sorted(self.dic[s]):
-                k = k.rstrip(' ')
+            if section=='*' or section+'.'==s[:len(section)+1]:
                 if s!='main':
-                    content += k+' = '+self.dic[s][k]+'\n'
-                else : main += k+' = '+self.dic[s][k]+'\n'
+                    #~ if section=='*': content += '\n['+s+']\n'
+                    #~ else : content += '\n['+s[len(section)+1:]+']\n'
+                    content += '\n['+s+']\n'
+                for k in sorted(self.dic[s]):
+                    k = k.rstrip(' ')
+                    if s!='main' :
+                        content += k+' = '+self.dic[s][k]+'\n'
+                    else : main += k+' = '+self.dic[s][k]+'\n'
         return main + content
     
     def read(self):
@@ -275,33 +307,43 @@ class IniFile:
         except IOError : pass
 
 
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~ class ImpraStorage ~~
+
+class BadKeysException(BaseException):
+    pass
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~ class Rsa ~~
 
 class Rsa:
     """"""
     
-    def __init__(self, prvKey=None, pubKey=None, dpath='./'):
+    def __init__(self, prvKey=None, pubKey=None, dpath='./', forceKeyGen=False):
         """"""
         self.cpath  = dirname(realpath(__file__))+'/../desurveil/scripts/'
         self.prvKey = prvKey
         self.pubKey = pubKey
         self.dpath  = dpath
-        if prvKey == None or pubKey==None : self.key()
+        if prvKey == None or pubKey==None : self.key(forceKeyGen)
 
-    def key(self):
+    def key(self,force=False):
         """"""
         cmd = self.cpath+"desurveil key -a "+self.dpath+".impra_id_rsa -l "+self.dpath+".impra_id_rsa.pub"
         #print(cmd)
+        
         try :
             with open(self.dpath+'.impra_id_rsa','rt') as f: pass
-        except IOError as e:            
+            if force:d = popen(cmd).read()
+        except IOError as e:
             d = popen(cmd).read()
             #print(d)
         self.prvKey = get_file_content(self.dpath+'.impra_id_rsa')
         self.pubKey = get_file_content(self.dpath+'.impra_id_rsa.pub')
-        #print('pubKey : \n'+self.pubKey)
-        #print('prvKey : \n'+self.prvKey)
+        #~ print('pubKey : \n'+self.pubKey)
+        #~ print('prvKey : \n'+self.prvKey)
     
     def encrypt(self,data):
         """"""
@@ -318,5 +360,10 @@ class Rsa:
         if self.prvKey != None : key = " -CI '"+self.prvKey+"'"
         #if self.prvKey != None : key = " -C '"+self.dpath+".impra_id_rsa'"
         cmd = self.cpath+"desurveil decrypt -i '"+data+"'"+key
-        #print(cmd)
-        return popen(cmd).read()
+        
+        rs = run(cmd)
+        if rs[0]==1:
+            raise BadKeysException('bad key to decrypt')
+        else :
+            encData = str(rs[1],'utf-8')
+        return encData
