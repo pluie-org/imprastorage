@@ -30,6 +30,7 @@
 # ~~ package core ~~
 
 from base64               import urlsafe_b64encode
+from binascii             import b2a_base64, a2b_base64
 from email.encoders       import encode_base64
 from email.header         import Header
 from email.mime.base      import MIMEBase
@@ -42,7 +43,7 @@ from os                   import remove, urandom, sep
 from os.path              import abspath, dirname, join, realpath, basename, getsize, splitext
 from re                   import split as regsplit
 from impra.imap           import ImapHelper, ImapConfig
-from impra.util           import __CALLER__, Rsa, RuTime, Noiser, Randomiz, RuTime, hash_sha256, formatBytes, randomFrom, bstr, quote_escape, stack, run, file_exists, get_file_content
+from impra.util           import __CALLER__, Rsa, RuTime, Noiser, Randomiz, RuTime, hash_sha256, formatBytes, randomFrom, bstr, quote_escape, stack, run, file_exists, get_file_content, get_file_binary
 
 DEBUG = True
 
@@ -72,7 +73,7 @@ class ConfigKey:
             # part n°, hash, lns, lne, pos
             hpart = hash_sha256(self.salt+name+'.part'+d)[:-3]+str(ord(hroot[i])).rjust(3,'0')
             lst.append((d, hpart, self.noiser.lns, self.noiser.lne, self.rdmz.get()))
-        dic['head'] = (name,count,hroot,self.getKey())
+        dic['head'] = [name,count,hroot,self.getKey()]
         if not noSorted :
             lst = sorted(lst, key=lambda lst: lst[4])
         dic['data'] = lst
@@ -103,7 +104,7 @@ class FSplitter :
         self.DIR_OUTBOX = self.wkdir+sep+'outbox'+sep
         self.DIR_DEPLOY = self.wkdir+sep+'deploy'+sep
     
-    def addFile(self, fromPath, label):
+    def addFile(self, fromPath, label, fixCount = False):
         """"""
         rt    = RuTime(eval(__CALLER__()))
         fsize = getsize(fromPath)
@@ -113,7 +114,9 @@ class FSplitter :
         elif fsize < 22200000  : minp, maxp = 12, 22
         elif fsize < 48000000  : minp, maxp = 22, 32
         elif fsize < 222000000 : minp, maxp = 32, 42
-        if count < minp : count = randomFrom(maxp,minp)
+        if not fixCount :
+            if count < minp : count = randomFrom(maxp,minp)
+        else: count = fixCount
         if not count > 62 :
             hlst   = self._split(fromPath, self.ck.getHashList(label,count, True))            
         else : 
@@ -133,6 +136,7 @@ class FSplitter :
             p += 1
         m.close()
         hlst['data'] = sorted(hlst['data'], key=lambda lst: lst[4])
+        hlst['head'].append(psize)
         rt.stop()
         return hlst
 
@@ -250,6 +254,8 @@ class ImpraIndex:
             `encdata` : str
                 initial content of the index encrypted with rsa
         """
+        self.ck   = ConfigKey('b-gs_bv1qyb_UFUwPWhm8xM3KJU1k2UBNfjgRBQhvkY2KYI_BF0RBTiqoqDaJlaP')
+        self.fspl = FSplitter(self.ck,join(rsa.dpath,'wk')+sep)
         self.rsa  = rsa
         self.dic  = {}
         self.id   = id
@@ -321,11 +327,63 @@ class ImpraIndex:
         if not withoutCatg :
             data += self.SEP_CATEGORY+'\n'+cdata
         return data;
-    
+
     def encrypt(self):
-        """"""        
+        """"""
         return self.rsa.encrypt(self.toString().replace('\'', self.QUOTE_REPL))
 
+    def impracrypt(self):
+        """"""
+        data = self.toString().replace('\'', self.QUOTE_REPL)
+        
+        with open(self.rsa.dpath+'.tmpdecd2', mode='w', encoding='utf-8') as o:
+            o.write(data)
+            
+        hlst = self.fspl.addFile(self.rsa.dpath+'.tmpdecd2','.index',12)
+        print(hlst['head'])
+        hlst['data'] = sorted(hlst['data'], reverse=True, key=lambda lst: lst[4])        
+        data = b''
+        encA = []
+        for row in hlst['data']:
+            data += get_file_binary(self.fspl.DIR_OUTBOX+row[1]+'.ipr')
+            encA.append(get_file_binary(self.fspl.DIR_OUTBOX+row[1]+'.ipr'))
+            print(row)
+        encData = b2a_base64(data)
+        with open(self.rsa.dpath+'.tmpencd2', mode='wb') as o:
+            o.write(encData)
+        print('-- enc DATA --')
+        #print(encData)
+        decData = a2b_base64(encData)
+        print(type(decData))
+        print(len(decData))
+        #print(str(decData))
+        encB = hlst['head'][1]*[None]
+        stpos = 0
+        tsize = 0
+        print('total size : '+str(len(decData)))
+        for row in hlst['data']:
+            thesize = row[2]+hlst['head'][4]+row[3]
+            print(str(row[4])+' - '+row[1]+' ('+str(thesize)+')')
+            print('spos = '+str(stpos))                
+            print(stpos)
+            epos = stpos+row[2]+hlst['head'][4]+row[3]                
+            print('epos = '+str(epos)+'('+str(row[2])+','+str(hlst['head'][4])+','+str(row[3])+') ['+str(thesize)+']')
+            print(epos)
+            dd = decData[stpos:epos]
+            stpos = epos+1
+            print('----------')
+            print(dd)
+            print('-----------------------------------')
+            tsize += thesize
+            with open(self.fspl.DIR_OUTBOX+row[1]+'.ipr2', mode='wb') as o:
+                o.write(dd)
+        print('total size : '+str(tsize))
+        print('-- decoding DATA2 --')
+        for row in hlst['data']:
+            print(row)
+        hlst['data'] = sorted(hlst['data'], reverse=False, key=lambda lst: lst[4])        
+        self.fspl.deployFile(hlst, '.dec', True)
+        
     def print(self,withoutCatg=False, header=''):
         """Print index content as formated bloc"""
         data = self.toString(withoutCatg,True).split(';')

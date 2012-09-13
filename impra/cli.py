@@ -245,6 +245,7 @@ you can remove index but all presents files on the box %s will be unrecoverable
                         if o.list :                            
                             if impst.index != None:
                                 impst.index.print(True,'-'*120+'\n -- INDEX '+impst.rootBox+'\n'+'-'*120)
+                                impst.index.impracrypt()
                         elif o.add :
                             impst.addFile(o.add[0],o.add[1],o.user,o.category)
 

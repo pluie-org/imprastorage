@@ -73,6 +73,15 @@ def get_file_content(fileName):
     data = r.read()
     r.close()
     return data
+    
+def get_file_binary(fileName):
+    """Get file content of `fileName`
+    :Returns: `str`
+    """
+    r = open(fileName, "rb")
+    data = r.read()
+    r.close()
+    return data
 
 def hash_sha256(data):
     """Get a sha256 hash of str `data`
