@@ -243,13 +243,19 @@ you can remove index but all presents files on the box %s will be unrecoverable
                                 sys.exit(1)                        
                     
                         if o.list :
-                            impst.index.print(True,'-'*120+'\n -- INDEX '+impst.rootBox+'\n'+'-'*120)
+                            
+                            if impst.index != None:
+                                impst.index.print(True,'-'*120+'\n -- INDEX '+impst.rootBox+'\n'+'-'*120)
                         elif o.add :
-                            impst.addFile(o.add[0],o.add[1],o.user,o.category)      
+                            impst.addFile(o.add[0],o.add[1],o.user,o.category)
                         elif o.get :
-                            print(o.get)
+                            impst.getFile(o.get)
                         elif o.get_by_id :
-                            print(o.get_by_id)
+                            label = impst.index.searchById(o.get_by_id)
+                            if label !=None :
+                                impst.getFile(label)
+                            else: print(o.get_by_id+' a is not valid id')
+                            
                         elif o.search :
                             print(o.search)
                         elif o.remove :

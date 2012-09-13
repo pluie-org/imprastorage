@@ -188,19 +188,23 @@ class ImapHelper:
 
     def countSeen(self, box='INBOX'):
         """"""
-        s = self.status()
+        s = self.status(box)
         return s['MESSAGES']-s['UNSEEN']
 
     def countUnseen(self, box='INBOX'):
         """"""
-        return self.status()['UNSEEN']
+        return self.status(box)['UNSEEN']
 
     def countMsg(self, box='INBOX'):
         """"""
-        return self.status()['MESSAGES']
+        return self.status(box)['MESSAGES']
 
-    def _ids(self, box='INBOX', search='ALL', charset=None):
+    def _ids(self, box='INBOX', search='ALL', charset=None, byUid=False):
         """"""
+        status, resp = self.srv.select(box)
+        if status == self.KO :
+            self.createBox(box)
+            self.srv.select(box)
         status, resp = self.srv.search(charset, '(%s)' % search)
         return split(' ',bstr(resp[self.K_HEAD]))
 
@@ -239,19 +243,54 @@ class ImapHelper:
         rt.stop()
         return status==self.OK
 
-    def subject(self, mid):
+    def subject(self, mid, byUid=False):
         """"""
-        status, resp = self.srv.fetch(mid, '(body[header.fields (subject)])')
+        status, resp = self.fetch(mid, '(UID BODY[HEADER.FIELDS (SUBJECT)])', byUid)
         subject = decode_header(str(resp[self.K_HEAD][1][9:-4], 'utf-8'))[0]
         s = subject[0]
         if subject[1] :
             s = str(s,subject[1])
         return s
 
-    def email(self, mid):
+    def search(self, query, byUid=False):
+        if byUid : 
+            status, resp = self.srv.uid('search', None, query)
+        else :
+            status, resp = self.srv.search(None, query)
+        ids = [m for m in resp[0].split()]        
+        return ids
+    
+    def searchBySubject(self, subject, byUid=False):
+        return self.search('(SUBJECT "%s")' % subject, byUid)
+
+    def getUid(self, mid):
         """"""
-        status, resp = self.srv.fetch(mid,'(UID RFC822)')
-        if status == self.OK :
+        value = ''
+        status, resp = self.srv.fetch(mid, '(UID)')
+        if status==self.OK :
+            value = resp[0][len(str(mid))+3:-1]        
+        return value
+    
+    def fetch(self, mid, query, byUid=False):
+        """"""
+        if not byUid :
+            status, resp = self.srv.fetch(mid, query)
+        else:
+            status, resp = self.srv.uid('fetch', mid, query)
+        return status, resp
+
+    def headerField(self, field, mid, byUid=False):
+        """"""
+        value = ''
+        status, resp = self.fetch(mid, '(UID BODY[HEADER.FIELDS (%s)])' % field.upper(), byUid)
+        if status==self.OK and resp[0]!=None:
+            value = str(resp[0][1][len(field)+2:-4],'utf-8')
+        return value
+
+    def email(self, mid, byUid=False):
+        """"""
+        status, resp = self.fetch(mid,'(UID RFC822)', byUid)
+        if status == self.OK and resp[0]!=None:
             msg = message_from_bytes(resp[0][1])
         else : 
             msg = None
@@ -261,21 +300,31 @@ class ImapHelper:
         """"""
         rt = RuTime(eval(__CALLER__()))
         self.srv.select(self.BOX_BIN)
-        ids = self._ids(self.BOX_BIN)
-        if len(ids) > 0 and ids[0]!='':
-            for mid in ids :
-                print('deleting msg '+mid)
-                status, resp = self.srv.store(mid, '+FLAGS', '\\Deleted')
+        ids = self.search('ALL',True)        
+        if len(ids) > 0 and ids[0]!='' and ids[0]!=None:
+            #print(str(ids[0],'utf-8').split())
+            for mid in ids:
+                print('deleting msg '+str(mid))
+                #~ uid = bytes(mid)
+                #~ print(type(mid))
+                #~ print(mid)
+                #status, resp = self.srv.store(mid, '+FLAGS', '\\Deleted')
+                status, resp = self.srv.uid('store', mid, '+FLAGS', '\\Deleted' )
+                print(status)
+                print(resp)
             self.srv.expunge()
         self.srv.select(self.rootBox)  
         rt.stop()
         
-    def delete(self, mid):
+    def delete(self, mid, byUid=False):
         """"""
         rt = RuTime(eval(__CALLER__('%i' % int(mid))))
         status = None
         if int(mid) > 0 :
-            status, resp = self.srv.store(mid, '+FLAGS', '\\Deleted')
+            if byUid:
+                status, resp = self.srv.uid( 'store', mid, '+FLAGS', '\\Deleted' )
+            else :
+                status, resp = self.srv.store(mid, '+FLAGS', '\\Deleted')
             self.srv.expunge()
         rt.stop()
         return status == self.OK
@@ -297,9 +346,14 @@ class ImapHelper:
 
     def send(self, msg, box='INBOX'):
         """"""
-        rt = RuTime(eval(__CALLER__()))
-        self.srv.append(box, '\Draft', Time2Internaldate(time()), bytes(msg,'utf-8'))
+        rt   = RuTime(eval(__CALLER__()))
+        mid  = None
+        date = Time2Internaldate(time())
+        status, resp  = self.srv.append(box, '\Draft', date, bytes(msg,'utf-8'))
+        if status==self.OK:
+            mid = str(resp[0],'utf-8')[11:-11].split(' ')
         rt.stop()
+        return mid
 
 if __name__ == '__main__':
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

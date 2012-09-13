@@ -85,6 +85,15 @@ def get_file_path(val):
     """"""
     return abspath(dirname(val))+sep
 
+def file_exists(path):
+    """"""
+    try:
+        with open(path) as f: 
+            exist = True
+    except IOError as e:
+            exist = False
+    return exist
+   
 def formatBytes(b, p=2):
     """Give a human representation of bytes size `b`
     :Returns: `str`
