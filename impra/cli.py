@@ -185,7 +185,9 @@ data command Examples:
                 if o.active_profile==None: 
                     if self.ini.has('profile') : o.active_profile = self.ini.get('profile')
                     else : o.active_profile = 'default'
-
+                
+                print(self.ini)
+                
                 if o.load_conf   : self.load_profile(o)
 
                 elif o.list_conf : print(self.ini.toString(o.active_profile))
@@ -197,12 +199,12 @@ data command Examples:
                         if o.set_port and not util.represents_int(o.set_port):
                             parser.error(' port must be a number')
                             sys.exit(1)
-                        if o.set_boxn: ini.set('box' , o.set_boxn,o.active_profile+'.imap')
-                        if o.set_host: ini.set('host', o.set_host,o.active_profile+'.imap')
-                        if o.set_user: ini.set('user', o.set_user,o.active_profile+'.imap')
-                        if o.set_pass: ini.set('pass', o.set_pass,o.active_profile+'.imap')
-                        if o.set_port: ini.set('port', o.set_port,o.active_profile+'.imap')                    
-                        if o.set_name: ini.set('name', o.set_name,o.active_profile+'.infos')
+                        if o.set_boxn: self.ini.set('box' , o.set_boxn,o.active_profile+'.imap')
+                        if o.set_host: self.ini.set('host', o.set_host,o.active_profile+'.imap')
+                        if o.set_user: self.ini.set('user', o.set_user,o.active_profile+'.imap')
+                        if o.set_pass: self.ini.set('pass', o.set_pass,o.active_profile+'.imap')
+                        if o.set_port: self.ini.set('port', o.set_port,o.active_profile+'.imap')                    
+                        if o.set_name: self.ini.set('name', o.set_name,o.active_profile+'.infos')
                         if o.gen_keys:
                             kg = crypt.KeyGen(256)
                             self.ini.set('key' ,kg.key,o.active_profile+'.keys')
@@ -242,9 +244,13 @@ you can remove index but all presents files on the box %s will be unrecoverable
                                 print('bye')
                                 sys.exit(1)                        
                     
-                        if o.list :                            
+                        if o.list :
+                            uid  = conf.get('uid' ,'index')
+                            date = conf.get('date','index')
+                            if uid  == None : uid  = 'EMPTY'
+                            if date == None : date = ''
                             if impst.index != None:
-                                impst.index.print(True,'-'*120+'\n -- INDEX(`'+conf.get('uid','index')+'`) boxname :`'+impst.rootBox+'` '+conf.get('date','index')+'\n'+'-'*120)
+                                impst.index.print(True,'-'*120+'\n -- INDEX(`'+uid+'`) boxname :`'+impst.rootBox+'` '+date+'\n'+'-'*120)
                                 #encData = impst.index.impraEncrypt(impst.index.toString())
                                 #~ dd = """coucou mon joli coeur :*:* je s"""
                                 #~ kg = crypt.KeyGen(256)
