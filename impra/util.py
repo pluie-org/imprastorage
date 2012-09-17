@@ -41,7 +41,13 @@ from inspect    import stack
 from subprocess import PIPE, Popen
 from sys        import stderr, executable as pyexec
 
+DEBUG_ALL    = 0
+DEBUG_WARN   = 1
+DEBUG_NOTICE = 2
+DEBUG_INFO   = 3
 
+DEBUG       = True
+DEBUG_LEVEL = DEBUG_INFO
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~ methods ~~
 
@@ -149,70 +155,17 @@ def __CALLER__(args=''):
         eval(__CALLER('"%s","%s"' % (arg1,arg2)))
         
     :Returns: `str`
-    """    
+    """
+    global DEBUG_LEVEL, DEBUG, DEBUG_WARN
     #~ print(inspect.stack()[1][3])
     #~ print(print(args))
     #~ print('-----')
     #~ print(inspect.stack())
     #~ print('---------------')
-    val = "self.__class__.__name__+'.%s' % stack()[1][3]+'("+quote_escape(args)+") l:'+str(stack()[1][2])"
+    val = "self.__class__.__name__+'.%s' % stack()[1][3]+'("+quote_escape(args)+") "
+    if DEBUG and DEBUG_LEVEL<=DEBUG_WARN : val += "l:'+str(stack()[1][2])"
+    else: val += "'"
     return val
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# ~~ class Noiser ~~
-
-class Noiser:
-    """"""
-    
-    KEY_LEN = 256
-    """"""
-
-    def __init__(self, key, part=0):
-        """"""
-        
-        #~ if len(key)!=self.KEY_LEN : 
-            #~ raise Exception('Invalid Pass length')
-        #~ else :
-        self.key  = key
-        self.build(part)
-
-    def build(self, part):
-        """"""
-        if not part < self.KEY_LEN-1 : raise Exception('part exceed limit')
-        else :
-            self.part, v = part, 0
-            v  = int(ceil((self.key[22]+v)/4.20583))
-            self.lns = int(ceil(v/2))-self.key[self.part]+self.key[7]
-            self.lne = int(v-self.lns-self.key[self.part+2]-self.key[44]/2.1934)
-
-    def getNoise(self, l):
-        """"""
-        return urandom(l)
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# ~~ class Randomiz ~~
-
-class Randomiz:
-    """"""
-    
-    def __init__(self,count,chl=None):
-        """"""
-        if chl ==None : self.lst = list(range(0,count))
-        else: self.lst = chl
-        self.count = len(self.lst)
-    
-    def new(self,count=None, chl=None):
-        """"""
-        if count : self.count = count
-        self.__init__(self.count,chl)
-    
-    def get(self,single=True):
-        """"""
-        pos = choice(self.lst)
-        if single: del self.lst[self.lst.index(pos)]
-        return pos
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -221,21 +174,24 @@ class Randomiz:
 class RuTime:
     """Give basics time stats"""
 
-    def __init__(self,label):
+    def __init__(self,label,lvl=DEBUG_NOTICE):
         """Initialize duration with appropriate label"""
-        self.label = label        
+        from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_INFO
+        self.debug      = DEBUG and DEBUG_LEVEL <= lvl
+        self.debugStart = self.debug and lvl < DEBUG_INFO
+        self.lvl        = lvl
+        self.label      = label
         self._start()
     
     def _start(self):
-        from impra.core import DEBUG
-        if DEBUG :print(' ==> '+self.label)
+
+        if self.debugStart :print(' ==> '+self.label)
         self.sc = time()
     
     def stop(self):
         """Stop duration and print basics stats duration on console"""
-        from impra.core import DEBUG
         self.ec = time()
-        if DEBUG:self._stats()
+        if self.debug: self._stats()
     
     def _stats(self):
         print(' <== '+self.label+(' [%.9f s]' % (self.ec - self.sc)))
@@ -339,68 +295,6 @@ class IniFile:
 
 class BadKeysException(BaseException):
     pass
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# ~~ class Rsa ~~
-
-class Rsa:
-    """"""
-    
-    def __init__(self, prvKey=None, pubKey=None, dpath='./', forceKeyGen=False):
-        """"""        
-        self.cpath  = join(dirname(dirname(realpath(__file__))),'desurveil','scripts')+sep
-        self.prvKey = prvKey
-        self.pubKey = pubKey
-        self.dpath  = realpath(dpath)+sep
-        if prvKey == None or pubKey==None : self.key(forceKeyGen)
-
-    def key(self,force=False):
-        """"""
-        cmd = self.cpath+'desurveil key -a '+self.dpath+'.impra_id_rsa -l '+self.dpath+'.impra_id_rsa.pub'
-        try :
-            with open(self.dpath+'.impra_id_rsa','rt') as f: pass
-            if force:d = popen(cmd).read()
-        except IOError as e:
-            d = popen(pyexec+' '+cmd).read()
-            #print(pyexec+' '+cmd)
-        self.prvKey = get_file_content(self.dpath+'.impra_id_rsa')
-        self.pubKey = get_file_content(self.dpath+'.impra_id_rsa.pub')
-        #~ print('pubKey : \n'+self.pubKey)
-        #~ print('prvKey : \n'+self.prvKey)
-    
-    def encrypt(self,data):
-        """"""
-        key = ''
-        #if self.pubKey != None : key = ' -CI "'+self.pubKey+'"'
-        if self.pubKey != None : key = ' -C "'+self.dpath+'.impra_id_rsa.pub"'
-        with open(self.dpath+'.tmpdecd', mode='w', encoding='utf-8') as o:
-            o.write(data)
-        cmd = self.cpath+'desurveil encrypt "'+self.dpath+'.tmpdecd'+'" '+key
-        #print(pyexec+' '+cmd)
-        rs = run(pyexec+' '+cmd)
-        if rs[0]==1:            
-            print(rs)
-            raise BadKeysException('bad key to encrypt')
-        else :
-            encData = str(rs[1],'utf-8')
-        return encData
-
-    def decrypt(self,data):
-        """"""
-        key = ''
-        #if self.prvKey != None : key = ' -CI "'+self.prvKey+'"'
-        if self.prvKey != None : key = ' -C "'+self.dpath+'.impra_id_rsa"'
-        with open(self.dpath+'.tmpencd', mode='w', encoding='utf-8') as o:
-            o.write(data)
-        cmd = self.cpath+'desurveil decrypt "'+self.dpath+'.tmpencd'+'" '+key
-        #print(pyexec+' '+cmd)
-        rs = run(pyexec+' '+cmd)
-        if rs[0]==1:
-            print(rs)            
-            raise BadKeysException('bad key to decrypt')
-        else :
-            decData = str(rs[1],'utf-8')
-        return decData
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

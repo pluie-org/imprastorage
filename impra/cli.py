@@ -49,7 +49,7 @@ transfert process is transparent. Just vizualize locally the index of
 stored files and simply select files to download or upload.
 ImpraStorage automatically launch the parts to download, then merge parts
 in the appropriate way to rebuild the original file. Inversely, a file
-to upload is splitt -in several parts with addition of noise data), and
+to upload is split (in several parts with addition of noise data), and
 ImpraStorage randomly upload each parts then update the index.
 
 """
@@ -250,9 +250,12 @@ you can remove index but all presents files on the box %s will be unrecoverable
                             if uid  == None : uid  = 'EMPTY'
                             if date == None : date = ''
                             if impst.index != None:
-                                impst.index.print(True,'-'*120+'\n -- INDEX(`'+uid+'`) boxname :`'+impst.rootBox+'` '+date+'\n'+'-'*120)
+                                impst.index.print('-'*120+'\n -- INDEX(`'+uid+'`) boxname :`'+impst.rootBox+'` '+date+'\n'+'-'*120)
                                 #encData = impst.index.impraEncrypt(impst.index.toString())
-                                #~ dd = """coucou mon joli coeur :*:* je s"""
+                                #~ dd = """coucou mon joli coeur :*:* je sais que je te saoule avec ça mais bon putain tu va te planter ou merde"""
+                                #~ dd = """01234567890123456789012345678901234567890123456789#"""
+                                #~ 
+                                #~ 
                                 #~ kg = crypt.KeyGen(256)
                                 #~ print('-- key --')
                                 #~ print(kg.key)
@@ -260,7 +263,7 @@ you can remove index but all presents files on the box %s will be unrecoverable
                                 #~ print(kg.mark)
                                 #~ km = crypt.Kirmah(kg.key, kg.mark)
                                 #~ encData = km.encrypt(dd,'.index',22)
-                                #~ print('*'+encData+'*')
+                                #~ #print('*'+encData+'*')
                                 #~ decData = km.decrypt(encData,'.index',22)
                                 #~ print('*'+decData+'*')                                
                                 
@@ -277,8 +280,11 @@ you can remove index but all presents files on the box %s will be unrecoverable
                             else: print(o.get_by_id+' a is not valid id')
                             
                         elif o.search :
-                            print(o.search)
-
+                            label = impst.index.searchByPattern(o.search)
+                            if label==None: 
+                                print(' -- no match found for pattern `%s` --' % o.search)
+                            else:
+                                impst.index.print('-'*120+'\n -- SEARCH: `'+o.search+'` -- found '+str(len(label))+' results --\n'+'-'*120,label)
                         elif o.remove :
                             print(o.remove)
 

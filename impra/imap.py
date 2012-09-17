@@ -298,20 +298,23 @@ class ImapHelper:
 
     def deleteBin(self):
         """"""
+        from impra.util import DEBUG_NOTICE, DEBUG, DEBUG_LEVEL
         rt = RuTime(eval(__CALLER__()))
         self.srv.select(self.BOX_BIN)
         ids = self.search('ALL',True)        
         if len(ids) > 0 and ids[0]!='' and ids[0]!=None:
             #print(str(ids[0],'utf-8').split())
-            for mid in ids:
-                print('deleting msg '+str(mid))
+            for mid in ids:                
                 #~ uid = bytes(mid)
                 #~ print(type(mid))
                 #~ print(mid)
                 #status, resp = self.srv.store(mid, '+FLAGS', '\\Deleted')
                 status, resp = self.srv.uid('store', mid, '+FLAGS', '\\Deleted' )
-                print(status)
-                print(resp)
+                
+                if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE:
+                    print('deleting msg '+str(mid))
+                    print(status)
+                    print(resp)
             self.srv.expunge()
         self.srv.select(self.rootBox)  
         rt.stop()
@@ -331,12 +334,13 @@ class ImapHelper:
 
     def downloadAttachment(self, msg, toDir='./'):
         """"""
-        rt = RuTime(eval(__CALLER__('%i' % int(msg))))
+        from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_INFO
+        rt = RuTime(eval(__CALLER__('%i' % int(msg))),DEBUG_INFO)
         if not isinstance(msg, Message) :
             msg = self.email(msg)
         for part in msg.walk():
             filename = part.get_filename()
-            if filename != None : print(filename)
+            if filename != None and DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : print(filename)
             if part.get_content_maintype() == 'multipart' or not filename : continue
             fp = open(join(toDir, filename), 'wb')
             #print(part.get_payload(decode=True)[::-1])
@@ -346,7 +350,8 @@ class ImapHelper:
 
     def send(self, msg, box='INBOX'):
         """"""
-        rt   = RuTime(eval(__CALLER__()))
+        from impra.util import DEBUG_INFO
+        rt   = RuTime(eval(__CALLER__()),DEBUG_INFO)
         mid  = None
         date = Time2Internaldate(time())
         status, resp  = self.srv.append(box, '\Draft', date, bytes(msg,'utf-8'))
