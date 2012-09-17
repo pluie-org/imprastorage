@@ -29,7 +29,7 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~ package core ~~
 
-from base64               import urlsafe_b64encode
+from base64               import urlsafe_b64encode, b64decode
 from binascii             import b2a_base64, a2b_base64
 from email.encoders       import encode_base64
 from email.header         import Header
@@ -43,50 +43,10 @@ from os                   import remove, urandom, sep
 from os.path              import abspath, dirname, join, realpath, basename, getsize, splitext
 from re                   import split as regsplit
 from impra.imap           import ImapHelper, ImapConfig
-from impra.util           import __CALLER__, Rsa, RuTime, Noiser, Randomiz, RuTime, hash_sha256, formatBytes, randomFrom, bstr, quote_escape, stack, run, file_exists, get_file_content, get_file_binary
+from impra.util           import __CALLER__, RuTime, formatBytes, randomFrom, bstr, quote_escape, stack, run, file_exists, get_file_content
+from impra.crypt          import Kirmah, ConfigKey, Noiser, Randomiz, hash_sha256
 
 DEBUG = True
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# ~~ class ConfigKey ~~
-
-class ConfigKey:
-    """"""
-    
-    def __init__(self, key=None, psize=19710000):
-        """"""
-        if key : self.key = bytes(key,'utf-8')
-        else : self.key = self._build()
-        self.psize  = psize
-        self.salt   = str(self.key[::-4])
-        self.noiser = Noiser(self.key)
-        self.rdmz   = Randomiz(1)
-
-    def getHashList(self,name,count,noSorted=False):
-        """"""
-        rt = RuTime(eval(__CALLER__('"%s",%s,%i' % (name,count,noSorted))))
-        self.rdmz.new(count)
-        dic, lst, hroot = {}, [], hash_sha256(self.salt+name)
-        for i in range(count) :  
-            self.noiser.build(i)
-            d     = str(i).rjust(2,'0')
-            # part n°, hash, lns, lne, pos
-            hpart = hash_sha256(self.salt+name+'.part'+d)[:-3]+str(ord(hroot[i])).rjust(3,'0')
-            lst.append((d, hpart, self.noiser.lns, self.noiser.lne, self.rdmz.get()))
-        dic['head'] = [name,count,hroot,self.getKey()]
-        if not noSorted :
-            lst = sorted(lst, key=lambda lst: lst[4])
-        dic['data'] = lst
-        rt.stop()
-        return dic
-    
-    def _build(self,l=48):
-        """"""
-        return urlsafe_b64encode(urandom(l))
-    
-    def getKey(self):
-        """"""
-        return str(self.key,'utf-8')
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -131,6 +91,7 @@ class FSplitter :
         m = mmap(f.fileno(), 0)
         p = 0
         psize = ceil(getsize(fromPath)/hlst['head'][1])
+        print(str(psize))
         while m.tell() < m.size():
             self._splitPart(m,p,psize,hlst['data'][p])
             p += 1
@@ -143,8 +104,11 @@ class FSplitter :
     def _splitPart(self,mmap,part,size,phlst):
         """"""
         rt = RuTime(eval(__CALLER__('mmap,%s,%s,phlist' % (part,size))))
-        with open(self.DIR_OUTBOX+phlst[1]+'.ipr', mode='wb') as o: 
+        with open(self.DIR_OUTBOX+phlst[1]+'.ipr', mode='wb') as o:
+            #~ print(self.DIR_OUTBOX+phlst[1]+'.ipr')
+            #~ print(str(phlst[2])+' - '+str(size)+' - '+str(phlst[3])+' = '+str(phlst[2]+size+phlst[3]))
             o.write(self.ck.noiser.getNoise(phlst[2])+mmap.read(size)+self.ck.noiser.getNoise(phlst[3]))
+            
         rt.stop()
         
     def deployFile(self, hlst, ext='', fake=False):
@@ -187,15 +151,15 @@ class ImpraConf:
         save = False
         if self.ini.isEmpty():
             save = True
-            rsa = Rsa()
-            self.set('host','host','imap')
-            self.set('port','993','imap')
-            self.set('user','login','imap')
-            self.set('pass','password','imap')
-            self.set('box' ,'__IMPRA','imap')
-            self.set('pubKey',rsa.pubKey,'keys')
-            self.set('prvKey',rsa.prvKey,'keys')
-            self.set('salt'  ,'-¤-ImpraStorage-¤-','keys')
+            kg = crypt.KeyGen(256)
+            self.set('host' ,'host','imap')
+            self.set('port' ,'993','imap')
+            self.set('user' ,'login','imap')
+            self.set('pass' ,'password','imap')
+            self.set('box'  ,'__IMPRA','imap')
+            self.set('key'  ,kg.key,'keys')
+            self.set('mark' ,kg.mark,'keys')
+            self.set('salt' ,'-¤-ImpraStorage-¤-','keys')
         if not self.ini.hasSection(self.profile+self.SEP_SECTION+'catg'):
             save = True
             try:
@@ -244,23 +208,22 @@ class ImpraIndex:
     """Separator used for internal key such categories"""
     
     
-    def __init__(self, rsa, encdata='', dicCategory={}, id=0):
+    def __init__(self, key, mark, encdata='', dicCategory={}, id=0):
         """Initialize the index with rsa and encoded data
 
         :Parameters:
-            `rsa` : impra.Rsa
-                Rsa instance initialized with appropriate private and public
-                keys to decrypt/encrypt data
+            `key`     : str
+                appropriate key to decrypt/encrypt data
+            `mark`    : str
+                appropriate mark to check correct key
             `encdata` : str
                 initial content of the index encrypted with rsa
         """
-        self.ck   = ConfigKey('b-gs_bv1qyb_UFUwPWhm8xM3KJU1k2UBNfjgRBQhvkY2KYI_BF0RBTiqoqDaJlaP')
-        self.fspl = FSplitter(self.ck,join(rsa.dpath,'wk')+sep)
-        self.rsa  = rsa
+        self.km   = Kirmah(key, mark)
         self.dic  = {}
         self.id   = id
         if encdata =='' : data = encdata
-        else : data = self.rsa.decrypt(encdata)
+        else : data = self.decrypt(encdata)
         data = data.replace(self.QUOTE_REPL, '\'')
         ld   = regsplit('\n?\r? ?'+self.SEP_CATEGORY+' ?\n\r??',data)
         l    = regsplit(self.SEP_ITEM,ld[0])
@@ -320,9 +283,11 @@ class ImpraIndex:
                     for i in v: 
                         data += str(i)+self.SEP_TOKEN
                 else :
-                    data += str(v[6]).rjust(1+ceil(len(str(v[6]))/10),' ')+' '
-                    for i in v[:-1]: 
-                        data += str(i)+self.SEP_TOKEN
+                    data += str(v[6]).rjust(1+ceil(len(str(v[6]))/10),' ')+'  '
+                    data += str(v[0])[0:42]+'...  '
+                    data += str(v[1]).ljust(30,' ')+'   '
+                    for i in v[2:-1]:
+                        data += str(i)+'   '
             data = data.rstrip(self.SEP_TOKEN)+self.SEP_ITEM
         if not withoutCatg :
             data += self.SEP_CATEGORY+'\n'+cdata
@@ -330,66 +295,22 @@ class ImpraIndex:
 
     def encrypt(self):
         """"""
-        return self.rsa.encrypt(self.toString().replace('\'', self.QUOTE_REPL))
+        return self.km.encrypt(self.toString().replace('\'', self.QUOTE_REPL),'.index',22)
 
-    def impracrypt(self):
+    def decrypt(self,data):
         """"""
-        data = self.toString().replace('\'', self.QUOTE_REPL)
-        
-        with open(self.rsa.dpath+'.tmpdecd2', mode='w', encoding='utf-8') as o:
-            o.write(data)
-            
-        hlst = self.fspl.addFile(self.rsa.dpath+'.tmpdecd2','.index',12)
-        print(hlst['head'])
-        hlst['data'] = sorted(hlst['data'], reverse=True, key=lambda lst: lst[4])        
-        data = b''
-        encA = []
-        for row in hlst['data']:
-            data += get_file_binary(self.fspl.DIR_OUTBOX+row[1]+'.ipr')
-            encA.append(get_file_binary(self.fspl.DIR_OUTBOX+row[1]+'.ipr'))
-            print(row)
-        encData = b2a_base64(data)
-        with open(self.rsa.dpath+'.tmpencd2', mode='wb') as o:
-            o.write(encData)
-        print('-- enc DATA --')
-        #print(encData)
-        decData = a2b_base64(encData)
-        print(type(decData))
-        print(len(decData))
-        #print(str(decData))
-        encB = hlst['head'][1]*[None]
-        stpos = 0
-        tsize = 0
-        print('total size : '+str(len(decData)))
-        for row in hlst['data']:
-            thesize = row[2]+hlst['head'][4]+row[3]
-            print(str(row[4])+' - '+row[1]+' ('+str(thesize)+')')
-            print('spos = '+str(stpos))                
-            print(stpos)
-            epos = stpos+row[2]+hlst['head'][4]+row[3]                
-            print('epos = '+str(epos)+'('+str(row[2])+','+str(hlst['head'][4])+','+str(row[3])+') ['+str(thesize)+']')
-            print(epos)
-            dd = decData[stpos:epos]
-            stpos = epos+1
-            print('----------')
-            print(dd)
-            print('-----------------------------------')
-            tsize += thesize
-            with open(self.fspl.DIR_OUTBOX+row[1]+'.ipr2', mode='wb') as o:
-                o.write(dd)
-        print('total size : '+str(tsize))
-        print('-- decoding DATA2 --')
-        for row in hlst['data']:
-            print(row)
-        hlst['data'] = sorted(hlst['data'], reverse=False, key=lambda lst: lst[4])        
-        self.fspl.deployFile(hlst, '.dec', True)
-        
+        if data!='': data = self.km.decrypt(data,'.index',22)
+        return data
+
     def print(self,withoutCatg=False, header=''):
         """Print index content as formated bloc"""
         data = self.toString(withoutCatg,True).split(';')
         print(header)
+        print('id'+' '*2+'hash'+' '*43+'label'+' '*26+'part'+' '*2+'type'+' '*3+'from'+' '*11+'category')
+        print('-'*120)
         for row in data: 
             if row.rstrip('\n') != '': print(row)
+        print('-'*120)
             
 
 
@@ -399,7 +320,7 @@ class ImpraIndex:
 class ImpraStorage:
     """"""
     
-    def __init__(self, rsa, conf, remIndex=False, wkdir=None):
+    def __init__(self, conf, remIndex=False, wkdir=None):
         """"""
         if wkdir == None : wkdir = abspath(join(dirname( __file__ ), '..', 'wk'))
         self.wkdir   = wkdir
@@ -409,7 +330,6 @@ class ImpraStorage:
         iconf        = ImapConfig(self.conf.get('host','imap'), self.conf.get('port','imap'), self.conf.get('user', 'imap'), self.conf.get('pass', 'imap'))
         self.ih      = ImapHelper(iconf,self.rootBox)
         self.mb      = MailBuilder(self.conf.get('salt','keys'))
-        self.rsa     = rsa
         self.fsplit  = FSplitter(ConfigKey(),self.wkdir)
         self.delids  = []
         if remIndex  : self.removeIndex()
@@ -457,14 +377,14 @@ class ImpraStorage:
         self._getIdIndex()
         if self.idx :
             # getFromFile
-            if int(self.idx) == int(uid) and file_exists(self.pathInd):
+            if uid != None and int(self.idx) == int(uid) and file_exists(self.pathInd):
                 encData = get_file_content(self.pathInd)
                 print('cache')
             else:
                 encData = self._getCryptIndex()
                 with open(self.pathInd, mode='w', encoding='utf-8') as o:
                     o.write(encData)
-        index = ImpraIndex(self.rsa, encData, {'catg':self.conf.get('types','catg')}, int(nid))            
+        index = ImpraIndex(self.conf.get('key','keys'),self.conf.get('mark','keys'), encData, {'catg':self.conf.get('types','catg')}, int(nid))            
         rt.stop()
         return index
         

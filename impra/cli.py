@@ -31,8 +31,9 @@
     
 from optparse import OptionParser, OptionGroup
 import sys
-import impra.util as util
-import impra.core as core
+import impra.crypt as crypt
+import impra.util  as util
+import impra.core  as core
 
 desc="""
 ImpraStorage provided a private imap access to store large files.
@@ -40,9 +41,9 @@ Each file stored on the server is split in severals random parts.
 Each part also contains random noise data (lenght depends on a crypt key)
 to ensure privacy and exclude easy merge without the corresponding key.
 
-An index of files stored is encrypt (rsa 1024) and regularly updated.
-Once decrypt, it permit to perform search on the server and
-download each part.
+An index of files stored is encrypt (with the symmetric-key algorithm
+Kirmah) and regularly updated. Once decrypt, it permit to perform search
+on the server and download each part.
 
 transfert process is transparent. Just vizualize locally the index of
 stored files and simply select files to download or upload.
@@ -160,7 +161,7 @@ data command Examples:
         gpConf.add_option('-P', '--set-port'      , help='set imap port'                                               , action='store',       metavar='PORT       ')
         gpConf.add_option('-N', '--set-name'      , help='set user name'                                               , action='store',       metavar='NAME       ')
         gpConf.add_option('-B', '--set-boxn'      , help='set boxName on imap server (default:[%default])'             , action='store',       metavar='BOXNAME    ')
-        gpConf.add_option('-K', '--gen-keys'      , help='generate new pub/private keys'                               , action='store_true',  default=False)
+        gpConf.add_option('-K', '--gen-keys'      , help='generate new key'                                            , action='store_true',  default=False)
         gpConf.add_option('-A', '--active-profile', help='set active profile'                                          , action='store',       metavar='PROFILE    ')
 
         parser.add_option_group(gpConf)
@@ -203,10 +204,10 @@ data command Examples:
                         if o.set_port: ini.set('port', o.set_port,o.active_profile+'.imap')                    
                         if o.set_name: ini.set('name', o.set_name,o.active_profile+'.infos')
                         if o.gen_keys:
-                            rsa = util.Rsa(None,None,path,True)
-                            self.ini.set('prvKey',rsa.prvKey,o.active_profile+'.keys')
-                            self.ini.set('pubKey',rsa.pubKey,o.active_profile+'.keys')
-                            self.ini.set('salt'  ,'-¤-ImpraStorage-¤-',o.active_profile+'.keys')
+                            kg = crypt.KeyGen(256)
+                            self.ini.set('key' ,kg.key,o.active_profile+'.keys')
+                            self.ini.set('mark',kg.mark,o.active_profile+'.keys')
+                            self.ini.set('salt','-¤-ImpraStorage-¤-',o.active_profile+'.keys')
                         if self.check_profile(o.active_profile):
                             self.ini.set('profile', o.active_profile)
                         self.ini.write()
@@ -224,10 +225,9 @@ data command Examples:
                     
                     if self.check_profile(o.active_profile):
                         conf  = core.ImpraConf(self.ini,o.active_profile)
-                        rsa   = util.Rsa(conf.get('prvKey','keys'),conf.get('pubKey','keys'))
                         impst = None
                         try:
-                            impst = core.ImpraStorage(rsa, conf)
+                            impst = core.ImpraStorage(conf)
                         except util.BadKeysException as e :
                             print('Error : ')
                             print(e)
@@ -237,15 +237,27 @@ you can remove index but all presents files on the box %s will be unrecoverable
 """ % (o.active_profile, conf.get('box','imap')))
                             remIndex = input('remove index ? (yes/no)')
                             if remIndex.lower()=='yes':
-                                impst = core.ImpraStorage(rsa, conf, True)
+                                impst = core.ImpraStorage(conf, True)
                             else : 
                                 print('bye')
                                 sys.exit(1)                        
                     
                         if o.list :                            
                             if impst.index != None:
-                                impst.index.print(True,'-'*120+'\n -- INDEX '+impst.rootBox+'\n'+'-'*120)
-                                impst.index.impracrypt()
+                                impst.index.print(True,'-'*120+'\n -- INDEX(`'+conf.get('uid','index')+'`) boxname :`'+impst.rootBox+'` '+conf.get('date','index')+'\n'+'-'*120)
+                                #encData = impst.index.impraEncrypt(impst.index.toString())
+                                #~ dd = """coucou mon joli coeur :*:* je s"""
+                                #~ kg = crypt.KeyGen(256)
+                                #~ print('-- key --')
+                                #~ print(kg.key)
+                                #~ print('-- mark --')
+                                #~ print(kg.mark)
+                                #~ km = crypt.Kirmah(kg.key, kg.mark)
+                                #~ encData = km.encrypt(dd,'.index',22)
+                                #~ print('*'+encData+'*')
+                                #~ decData = km.decrypt(encData,'.index',22)
+                                #~ print('*'+decData+'*')                                
+                                
                         elif o.add :
                             impst.addFile(o.add[0],o.add[1],o.user,o.category)
 

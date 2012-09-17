@@ -165,26 +165,26 @@ def __CALLER__(args=''):
 class Noiser:
     """"""
     
-    KEY_LEN = 64
+    KEY_LEN = 256
     """"""
 
     def __init__(self, key, part=0):
         """"""
-        if len(key)!=self.KEY_LEN : 
-            raise Exception('Invalid Pass length')
-        else :
-            self.key  = key
-            self.build(part)
+        
+        #~ if len(key)!=self.KEY_LEN : 
+            #~ raise Exception('Invalid Pass length')
+        #~ else :
+        self.key  = key
+        self.build(part)
 
     def build(self, part):
         """"""
         if not part < self.KEY_LEN-1 : raise Exception('part exceed limit')
         else :
             self.part, v = part, 0
-            for i in self.key[::-2] : v += i
-            v  = int(ceil(v/4.22))
-            self.lns = int(ceil(v/2))-self.key[self.part]
-            self.lne = int(v-self.lns-self.key[self.part+2])
+            v  = int(ceil((self.key[22]+v)/4.20583))
+            self.lns = int(ceil(v/2))-self.key[self.part]+self.key[7]
+            self.lne = int(v-self.lns-self.key[self.part+2]-self.key[44]/2.1934)
 
     def getNoise(self, l):
         """"""
@@ -197,20 +197,21 @@ class Noiser:
 class Randomiz:
     """"""
     
-    def __init__(self,count):
+    def __init__(self,count,chl=None):
         """"""
-        self.lst = list(range(0,count))
+        if chl ==None : self.lst = list(range(0,count))
+        else: self.lst = chl
         self.count = len(self.lst)
     
-    def new(self,count=None):
+    def new(self,count=None, chl=None):
         """"""
         if count : self.count = count
-        self.__init__(self.count)
+        self.__init__(self.count,chl)
     
-    def get(self):
+    def get(self,single=True):
         """"""
         pos = choice(self.lst)
-        del self.lst[self.lst.index(pos)]
+        if single: del self.lst[self.lst.index(pos)]
         return pos
 
 
@@ -400,3 +401,28 @@ class Rsa:
         else :
             decData = str(rs[1],'utf-8')
         return decData
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~ class StrIterator ~~
+
+class StrIterator:
+
+    MAX_ITER = 1000
+    
+    def __init__(self,data):
+        self.l  = len(data)
+        self.p  = ceil(self.l/self.MAX_ITER)
+        self.d  = []
+        for x in range(self.p):
+            self.d.append(data[x*self.MAX_ITER:x*self.MAX_ITER+self.MAX_ITER])
+
+    def __iter__(self):
+        self.i = 0
+        return self
+
+    def __next__(self):
+        if self.i > len(self.d)-1 :
+            raise StopIteration 
+        self.i += 1
+        return self.d[self.i-1]
