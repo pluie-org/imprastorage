@@ -298,8 +298,8 @@ class ImapHelper:
 
     def deleteBin(self):
         """"""
-        from impra.util import DEBUG_NOTICE, DEBUG, DEBUG_LEVEL
-        rt = RuTime(eval(__CALLER__()))
+        from impra.util import DEBUG_NOTICE, DEBUG, DEBUG_LEVEL, DEBUG_INFO
+        rt = RuTime(eval(__CALLER__()),DEBUG_INFO)
         self.srv.select(self.BOX_BIN)
         ids = self.search('ALL',True)        
         if len(ids) > 0 and ids[0]!='' and ids[0]!=None:
@@ -310,9 +310,8 @@ class ImapHelper:
                 #~ print(mid)
                 #status, resp = self.srv.store(mid, '+FLAGS', '\\Deleted')
                 status, resp = self.srv.uid('store', mid, '+FLAGS', '\\Deleted' )
-                
-                if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE:
-                    print('deleting msg '+str(mid))
+                print('deleting msg '+str(mid))
+                if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE:                    
                     print(status)
                     print(resp)
             self.srv.expunge()

@@ -32,7 +32,7 @@
 from hashlib    import sha256
 from math       import log, floor, ceil
 from random     import choice
-from os         import urandom, popen, sep
+from os         import urandom, popen, sep, makedirs
 from os.path    import dirname, realpath, abspath, join
 from time       import time
 from re         import split as regsplit
@@ -114,7 +114,16 @@ def file_exists(path):
     except IOError as e:
             exist = False
     return exist
-   
+
+def mkdir_p(path):
+    """"""
+    try:
+        makedirs(path)
+    except OSError as e: # Python >2.5
+        if e.errno == errno.EEXIST:
+            pass
+        else: raise
+
 def formatBytes(b, p=2):
     """Give a human representation of bytes size `b`
     :Returns: `str`
@@ -185,7 +194,7 @@ class RuTime:
     
     def _start(self):
 
-        if self.debugStart :print(' ==> '+self.label)
+        if self.debug :print(' ==> '+self.label)
         self.sc = time()
     
     def stop(self):

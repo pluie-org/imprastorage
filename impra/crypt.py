@@ -29,7 +29,7 @@
 from impra.util import RuTime, __CALLER__, stack, DEBUG
 from base64     import urlsafe_b64encode, b64decode
 from binascii   import b2a_base64, a2b_base64
-from hashlib    import sha256
+from hashlib    import sha256, md5
 from math       import log, floor, ceil
 from random     import choice
 from os         import urandom
@@ -44,6 +44,12 @@ def hash_sha256(data):
     :Returns: `str`
     """
     return str(sha256(bytes(data,'utf-8')).hexdigest())
+
+def hash_md5_file(path):
+    """Get a md5 hash of file from path
+    :Returns: `str`
+    """
+    return md5(open(path, mode='rb').read()).hexdigest()
 
 def randomFrom(val, sval=0):
     """Get a random number from range `sval=0` to `val`
@@ -229,8 +235,8 @@ class Kirmah:
         dataEnc = str(b2a_base64(bytes(dataEnc,'utf-8')),'utf-8')
 
         #~ dataEnc = self.subenc(odata)
-        with open('./.KirmahENC', mode='w') as o:
-            o.write(dataEnc)
+        #~ with open('./.KirmahENC', mode='w') as o:
+            #~ o.write(dataEnc)
         rt.stop()
         return dataEnc
     
@@ -268,8 +274,8 @@ class Kirmah:
 
         #~ dataDec = self.subdec(data)
 
-        with open('./.KirmahDEC', mode='w') as o:
-            o.write(dataDec)        
+        #~ with open('./.KirmahDEC', mode='w') as o:
+            #~ o.write(dataDec)        
         rt.stop()
         return dataDec
 
