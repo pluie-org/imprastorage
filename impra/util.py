@@ -29,17 +29,19 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~ package util ~~
 
-from hashlib    import sha256
-from math       import log, floor, ceil
-from random     import choice
-from os         import urandom, popen, sep, makedirs
-from os.path    import dirname, realpath, abspath, join
-from time       import time
-from re         import split as regsplit
 from base64     import urlsafe_b64encode
 from inspect    import stack
+from errno      import EEXIST
+from hashlib    import sha256
+from math       import log, floor, ceil
+from os         import urandom, popen, sep, makedirs
+from os.path    import dirname, realpath, abspath, join
+from random     import choice
+from re         import split as regsplit
 from subprocess import PIPE, Popen
 from sys        import stderr, executable as pyexec
+#~ from sys.stdout import isatty
+from time       import time
 
 DEBUG_ALL    = 0
 DEBUG_WARN   = 1
@@ -48,6 +50,9 @@ DEBUG_INFO   = 3
 
 DEBUG       = True
 DEBUG_LEVEL = DEBUG_INFO
+
+COLOR_MODE  = True
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~ methods ~~
 
@@ -75,7 +80,7 @@ def get_file_content(fileName):
     """Get file content of `fileName`
     :Returns: `str`
     """
-    r = open(fileName, "rt")
+    r = open(fileName, 'rt')
     data = r.read()
     r.close()
     return data
@@ -84,7 +89,7 @@ def get_file_binary(fileName):
     """Get file content of `fileName`
     :Returns: `str`
     """
-    r = open(fileName, "rb")
+    r = open(fileName, 'rb')
     data = r.read()
     r.close()
     return data
@@ -101,6 +106,20 @@ def randomFrom(val, sval=0):
     """
     lst = list(range(sval,val))
     return choice(lst)
+
+def is_binary(filename):
+    """Check if given filename is binary."""
+    done = False
+    fp = open(filename, 'rb')
+    try:
+        CHUNKSIZE = 1024
+        while 1:
+            chunk = fp.read(CHUNKSIZE)
+            if b'\0' in chunk:  done = True # found null byte
+            if done or len(chunk) < CHUNKSIZE: break
+    finally:
+        fp.close()
+    return done
 
 def get_file_path(val):
     """"""
@@ -120,7 +139,7 @@ def mkdir_p(path):
     try:
         makedirs(path)
     except OSError as e: # Python >2.5
-        if e.errno == errno.EEXIST:
+        if e.errno == EEXIST:
             pass
         else: raise
 
@@ -166,16 +185,40 @@ def __CALLER__(args=''):
     :Returns: `str`
     """
     global DEBUG_LEVEL, DEBUG, DEBUG_WARN
-    #~ print(inspect.stack()[1][3])
-    #~ print(print(args))
-    #~ print('-----')
-    #~ print(inspect.stack())
-    #~ print('---------------')
     val = "self.__class__.__name__+'.%s' % stack()[1][3]+'("+quote_escape(args)+") "
     if DEBUG and DEBUG_LEVEL<=DEBUG_WARN : val += "l:'+str(stack()[1][2])"
     else: val += "'"
     return val
 
+def hilite(string, color=32, bold=True):
+    """"""
+    global COLOR_MODE    
+    if COLOR_MODE and True:
+        attr = [color]
+        if bold:
+            attr.append('1')
+        
+        #~ print('\033[1;30mGray like Ghost\033[1;m')
+        #~ print('\033[1;31mRed like Radish\033[1;m')
+        #~ print('\033[1;32mGreen like Grass\033[1;m')
+        #~ print('\033[1;33mYellow like Yolk\033[1;m')
+        #~ print('\033[1;34mBlue like Blood\033[1;m')
+        #~ print('\033[1;35mMagenta like Mimosa\033[1;m')
+        #~ print('\033[1;36mCyan like Caribbean\033[1;m')
+        #~ print('\033[1;37mWhite like Whipped Cream\033[1;m')
+        #~ print('\033[1;38mCrimson like Chianti\033[1;m')
+        #~ print('\033[1;41mHighlighted Red like Radish\033[1;m')
+        #~ print('\033[1;42mHighlighted Green like Grass\033[1;m')
+        #~ print('\033[1;43mHighlighted Brown like Bear\033[1;m')
+        #~ print('\033[1;44mHighlighted Blue like Blood\033[1;m')
+        #~ print('\033[1;45mHighlighted Magenta like Mimosa\033[1;m')
+        #~ print('\033[1;46mHighlighted Cyan like Caribbean\033[1;m')
+        #~ print('\033[1;47mHighlighted Gray like Ghost\033[1;m')
+        #~ print('\033[1;48mHighlighted Crimson like Chianti\033[1;m')        
+        
+        string = '\x1b[%sm%s\x1b[0m' % (';'.join(attr), string)
+        print(string)
+    return string
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~ class RuTime ~~

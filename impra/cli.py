@@ -83,9 +83,8 @@ class Cli:
 \n\
 %prog conf [-D|-L| -K,-H {host},-U {user},-X {password},-P {port},\n\
                   -B {boxname}] [-A profileName]\n\
-%prog data [-l |-a {file, label} |-g {label} |-G {id} |-s {pattern} |\n\
-                  -r {label} |-R {id}] [-c {catg}, -u {owner}, -b {boxname},\n\
-                  -o {outputdir}]',epilog="""
+%prog data [-l |-a {file, label} |-g {id} |-s {pattern} | -r {id}]\n\
+                  [-c {catg}, -u {owner}]', epilog="""
 
 conf command Examples:
 
@@ -104,8 +103,8 @@ conf command Examples:
 
 data command Examples:
     
-  List index on a specified box (different from box on active profile)
-    imprastorage data -lb boxname
+  List index
+    imprastorage data -l
 
   Add file
     imprastorage data -a /path/tofile 'my video'
@@ -114,14 +113,11 @@ data command Examples:
   when downloading files)
     imprastorage data -a /path/tofile '2009 - en la playa' -c videos/perso/2009
 
-  Get file 
-    imprastorage data -g '2009 - en la playa'
-
   Get file by id
-    imprastorage data -G 22
+    imprastorage data -g 22
 
   Remove from server a file by id
-    imprastorage data -R 22
+    imprastorage data -g 22
    
   Search files matching pattern :
     imprastorage data -s 'holydays'
@@ -137,20 +133,16 @@ data command Examples:
         # metavar='<ARG1> <ARG2>', nargs=2
         parser.add_option('-v', '--version'       , help='show program\'s version number and exit'                     , action='store_true' , default=False)
         parser.add_option('-q', '--quiet'         , help='don\'t print status messages to stdout'                      , action='store_false', default=True)
-        parser.add_option('-f', '--force'         , help='dont confirm and force action'                               , action='store_true' , default=False)
         parser.add_option('-d', '--debug'         , help='set debug mode'                                              , action='store_true' , default=False)
 
         gpData.add_option('-l', '--list'          , help='list index on imap server'                                   , action='store_true' )
         gpData.add_option('-a', '--add'           , help='add file FILE with specified LABEL on server'                , action='store',       metavar='FILE LABEL ', nargs=2)
-        gpData.add_option('-g', '--get'           , help='get file with specified LABEL from server'                   , action='store',       metavar='LABEL      ')
-        gpData.add_option('-G', '--get-by-id'     , help='get file with specified ID from server'                      , action='store',       metavar='ID         ')
+        gpData.add_option('-g', '--get'           , help='get file with specified ID from server'                      , action='store',       metavar='ID         ')
         gpData.add_option('-s', '--search'        , help='search file with specified PATTERN'                          , action='store',       metavar='PATTERN    ')
-        gpData.add_option('-r', '--remove'        , help='remove FILE with specified LABEL from server'                , action='store',       metavar='LABEL      ')
-        gpData.add_option('-R', '--remove-by-id'  , help='remove FILE with specified ID from server'                   , action='store',       metavar='ID         ')
-        gpData.add_option('-b', '--boxname'       , help='switch boxname on imap server'                               , action='store',       metavar='BOXN       ')
-        gpData.add_option('-c', '--category'      , help='set specified CATEGORY (crit. for opt. -l,-a or -s)'         , action='store',       metavar='CATG       '   , default='none')
+        gpData.add_option('-r', '--remove'        , help='remove FILE with specified ID from server'                   , action='store',       metavar='ID         ')
+        gpData.add_option('-c', '--category'      , help='set specified CATEGORY (crit. for opt. -l,-a or -s)'         , action='store',       metavar='CATG       '  , default='')
         gpData.add_option('-u', '--user'          , help='set specified USER (crit. for opt. -l,-a or -s)'             , action='store',       metavar='OWNER      '  , default='all')
-        gpData.add_option('-o', '--output-dir'    , help='set specified OUTPUT DIR (for opt. -l,-a,-d or -g)'          , action='store',       metavar='DIR        ')
+        #gpData.add_option('-o', '--output-dir'    , help='set specified OUTPUT DIR (for opt. -l,-a,-d or -g)'          , action='store',       metavar='DIR        ')
         parser.add_option_group(gpData)                                                                             
 
         gpConf.add_option('-L', '--list-conf'     , help='list configuration'                                          , action='store_true',  default=False)
@@ -221,7 +213,7 @@ data command Examples:
 
                 o.active_profile = self.ini.get('profile')
                     
-                if not o.list and not o.add and not o.get and not o.get_by_id and not o.search and not o.remove and not o.remove_by_id :
+                if not o.list and not o.add and not o.get and not o.search and not o.remove :
                     parser.error(' no options specified')
                 else :
                     
@@ -245,52 +237,44 @@ you can remove index but all presents files on the box %s will be unrecoverable
                                 sys.exit(1)                        
                     
                         if o.list :
-                            uid  = conf.get('uid' ,'index')
-                            date = conf.get('date','index')
-                            if uid  == None : uid  = 'EMPTY'
-                            if date == None : date = ''
+                            uid     = conf.get('uid' ,'index')
+                            date    = conf.get('date','index')
+                            account = conf.get('user','imap')
                             if impst.index != None:
-                                impst.index.print('-'*120+'\n -- INDEX(`'+uid+'`) boxname :`'+impst.rootBox+'` '+date+'\n'+'-'*120)
-                                #encData = impst.index.impraEncrypt(impst.index.toString())
-                                #~ dd = """coucou mon joli coeur :*:* je sais que je te saoule avec ça mais bon putain tu va te planter ou merde"""
-                                #~ dd = """01234567890123456789012345678901234567890123456789#"""
-                                #~ 
-                                #~ 
-                                #~ kg = crypt.KeyGen(256)
-                                #~ print('-- key --')
-                                #~ print(kg.key)
-                                #~ print('-- mark --')
-                                #~ print(kg.mark)
-                                #~ km = crypt.Kirmah(kg.key, kg.mark)
-                                #~ encData = km.encrypt(dd,'.index',22)
-                                #~ #print('*'+encData+'*')
-                                #~ decData = km.decrypt(encData,'.index',22)
-                                #~ print('*'+decData+'*')                                
-                                
+                                noData = impst.index.isEmpty()
+                                if uid  == None or noData : uid  = 'EMPTY'
+                                if date == None or noData : date = ''
+                                impst.index.print('-'*120+'\n -- ImpraStorage --  [account:'+account+'] [index:`'+uid+'`] [boxname:`'+impst.rootBox+'`]   '+date+'\n'+'-'*120)
+
+                            status, resp = impst.ih.srv.search(None, '(SUBJECT "%s")' % '584d15abeb71fbd92fa5861970088b32ebb1d2d6650cec6115a28b64877d70f2')
+                            ids = [m for m in resp[0].split()]
+                            for mid in ids :
+                                status, resp = impst.ih.srv.fetch(mid,'(UID RFC822.SIZE)')                                
+                                print(mid,status,resp)
+                            
                         elif o.add :
                             impst.addFile(o.add[0],o.add[1],o.user,o.category)
 
                         elif o.get :
-                            impst.getFile(o.get)
+                            ids = []
+                            for sid in o.get.split(',') :
+                                seq = sid.split('-')
+                                if len(seq)==2 : ids.extend(range(int(seq[0]),int(seq[1])+1))
+                                else: ids.append(sid)
+                            for sid in ids :                                
+                                key = impst.index.getById(str(sid))
+                                if key !=None : impst.getFile(key)
+                                else: print('-- `%s` is not a valid id --' % sid)
 
-                        elif o.get_by_id :
-                            label = impst.index.searchById(o.get_by_id)
-                            if label !=None :
-                                impst.getFile(label)
-                            else: print(o.get_by_id+' a is not valid id')
-                            
                         elif o.search :
-                            label = impst.index.searchByPattern(o.search)
-                            if label==None: 
-                                print(' -- no match found for pattern `%s` --' % o.search)
+                            matchIds = impst.index.getByPattern(o.search)
+                            if matchIds is not None: 
+                                headstr = util.hilite('-'*120+'\n -- SEARCH: `'+o.search+'` -- found '+str(len(matchIds))+' results --\n'+'-'*120)
+                                impst.index.print(headstr,matchIds)
                             else:
-                                impst.index.print('-'*120+'\n -- SEARCH: `'+o.search+'` -- found '+str(len(label))+' results --\n'+'-'*120,label)
+                                print(' -- no match found for pattern `%s` --' % o.search)
                         elif o.remove :
                             print(o.remove)
-
-                        elif o.remove_by_id :
-                            print(o.remove_by_id)
-
 
                     #~ filePath = '/media/Data/dev/big_toph3.jpg' 
                     #~ lab = 'Meuf\'bonne aussi4' 

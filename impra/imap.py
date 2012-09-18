@@ -26,9 +26,9 @@
 #   You should have received a copy of the GNU General Public License
 #   along with ImpraStorage.  If not, see <http://www.gnu.org/licenses/>.
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# ~~ package imap ~~
 
+from binascii         import b2a_base64, a2b_base64
+from codecs           import register, StreamReader, StreamWriter
 from email            import message_from_bytes
 from email.header     import decode_header
 from email.message    import Message
@@ -36,10 +36,12 @@ from imaplib          import IMAP4_SSL, Time2Internaldate
 from os.path          import join
 from re               import search, split
 from time             import time
-from impra.util       import __CALLER__, RuTime, bstr, stack
-from binascii         import b2a_base64, a2b_base64
-from codecs           import register, StreamReader, StreamWriter
 
+from impra.util       import __CALLER__, RuTime, bstr, stack
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~ package imap ~~
 
 def _seq_encode(seq,l):
     """"""
@@ -310,7 +312,7 @@ class ImapHelper:
                 #~ print(mid)
                 #status, resp = self.srv.store(mid, '+FLAGS', '\\Deleted')
                 status, resp = self.srv.uid('store', mid, '+FLAGS', '\\Deleted' )
-                print('deleting msg '+str(mid))
+                print('deleting msg %i' % int(mid))
                 if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE:                    
                     print(status)
                     print(resp)
@@ -349,12 +351,15 @@ class ImapHelper:
 
     def send(self, msg, box='INBOX'):
         """"""
-        from impra.util import DEBUG_INFO
-        rt   = RuTime(eval(__CALLER__()),DEBUG_INFO)
+        from impra.util import DEBUG_INFO, DEBUG_LEVEL, DEBUG, DEBUG_NOTICE
+        rt   = RuTime(eval(__CALLER__()))
         mid  = None
         date = Time2Internaldate(time())
         status, resp  = self.srv.append(box, '\Draft', date, bytes(msg,'utf-8'))
         if status==self.OK:
+            if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE:
+                print(status)
+                print(resp)
             mid = str(resp[0],'utf-8')[11:-11].split(' ')
         rt.stop()
         return mid

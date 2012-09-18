@@ -31,6 +31,7 @@
 
 from base64               import urlsafe_b64encode, b64decode
 from binascii             import b2a_base64, a2b_base64
+from datetime             import datetime, timedelta
 from email.encoders       import encode_base64
 from email.header         import Header
 from email.mime.base      import MIMEBase
@@ -43,11 +44,10 @@ from mmap                 import mmap
 from os                   import remove, urandom, sep
 from os.path              import abspath, dirname, join, realpath, basename, getsize, splitext
 from re                   import split as regsplit, match as regmatch, compile as regcompile, search as regsearch
+from time                 import time
 from impra.imap           import ImapHelper, ImapConfig
-from impra.util           import __CALLER__, RuTime, formatBytes, randomFrom, bstr, quote_escape, stack, run, file_exists, get_file_content, DEBUG, DEBUG_ALL, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, mkdir_p
+from impra.util           import __CALLER__, RuTime, formatBytes, randomFrom, bstr, quote_escape, stack, run, file_exists, get_file_content, DEBUG, DEBUG_ALL, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, mkdir_p, is_binary
 from impra.crypt          import Kirmah, ConfigKey, Noiser, Randomiz, hash_sha256, hash_md5_file 
-
-
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -60,6 +60,7 @@ class FSplitter :
         """"""
         self.ck         = ck
         self.wkdir      = wkdir
+        self.DIR_CACHE  = join(self.wkdir,'.cache')+sep
         self.DIR_INBOX  = join(self.wkdir,'inbox')+sep
         self.DIR_OUTBOX = join(self.wkdir,'outbox')+sep
         self.DIR_DEPLOY = join(self.wkdir,'deploy')+sep
@@ -111,7 +112,7 @@ class FSplitter :
             
         rt.stop()
         
-    def deployFile(self, hlst, fileName, ext='', dirs=None, fake=False):
+    def deployFile(self, hlst, fileName, ext='', uid='', dirs=None, fake=False):
         """"""
         rt = RuTime(eval(__CALLER__()))
         p = 0
@@ -121,7 +122,14 @@ class FSplitter :
             dirPath = join(self.DIR_DEPLOY,dirs)+sep
             mkdir_p(dirPath)
         else: dirPath = self.DIR_DEPLOY
-        fp = open(dirPath+fileName+ext, 'wb+')
+        
+        filePath = dirPath+fileName
+        if file_exists(filePath+ext):
+            print('\n-- `%s` already exist, deploying file as :\n-- `%s`\n' % (filePath+ext,filePath+'-'+str(uid)+ext))
+            filePath += '-'+str(uid)
+        filePath += ext
+            
+        fp = open(filePath, 'wb+')
         depDir = self.DIR_INBOX
         if fake : depDir = self.DIR_OUTBOX
         while p < hlst['head'][1] :
@@ -129,6 +137,7 @@ class FSplitter :
             p += 1
         fp.close()
         rt.stop()
+        return dirPath+fileName+ext
 
     def _mergePart(self,fp,part,phlst,depDir):
         """"""
@@ -228,6 +237,11 @@ class ImpraIndex:
     """"""
     UID            = 6
     """"""
+    BFLAG          = 7
+    """"""
+    
+    FILE_BINARY    = 'b'
+    FILE_CRYPT     = 'c'
     
     
     def __init__(self, key, mark, encdata='', dicCategory={}, id=0):
@@ -251,58 +265,100 @@ class ImpraIndex:
             if not self.SEP_KEY_INTERN+k in self.dic:
                 self.dic[self.SEP_KEY_INTERN+k] = dicCategory[k]
 
-    def add(self,key, label, count, ext='', usr='', cat='', md5=''):
-        """Add an entry to the index with appropriate label, key used by entry
-        to decode data, and parts count
+    def add(self,key, label, count, ext='', usr='', cat='', md5='', bFlag='b'):
+        """Add an entry to the index
         """
-        if self.search(md5) == None : 
-            self.dic[md5] = (key,label,count,ext,usr,cat, self.id)
+        if self.get(md5) == None : 
+            self.dic[md5] = (key,label,count,ext,usr,cat, self.id, bFlag)
             self.id +=1
         else : 
             print(label+' already exist')
 
     def addUser(self, nameFrom, hashName):
         """"""
+        if not self.hasUser(hashName):
+            self.dic[self.SEP_KEY_INTERN+'users'][hashName] = nameFrom
+    
+    def hasUser(self, hashName):
+        """"""
         if not self.SEP_KEY_INTERN+'users' in self.dic:
             self.dic[self.SEP_KEY_INTERN+'users'] = {}
-        if not hashName in self.dic[self.SEP_KEY_INTERN+'users']:
-            self.dic[self.SEP_KEY_INTERN+'users'][hashName] = nameFrom
-
+        return hashName in self.dic[self.SEP_KEY_INTERN+'users']
+            
     def getUser(self, hashName):
         """"""
         usrName = 'Anonymous'
-        if not str(self.SEP_KEY_INTERN+'users') in self.dic:
-            self.dic[self.SEP_KEY_INTERN+'users'] = {}
-        elif hashName in self.dic[self.SEP_KEY_INTERN+'users']:
+        if self.hasUser(hashName):
             usrName = self.dic[self.SEP_KEY_INTERN+'users'][hashName]
         return usrName
 
     def rem(self,label):
         """Remove the selected label from the index"""
         self.dic.pop(label, None)
-
-    def search(self,label):
-        """Search the corresponding label in the index"""
-        return self.dic.get(label)
+    
+    def getAutoCatg(self,ext):
+        """"""
+        catg = 'none'
+        if regsearch('\.(jpg|jpeg|gif|png)',ext):
+            catg = 'images'
+        elif regsearch('\.(txt|doc|odt|csv|pdf)',ext):
+            catg = 'doc'
+        elif regsearch('\.(mp4|avi|mpg|mpeg|flv|ogv)',ext):
+            catg = 'films'
+        elif regsearch('\.(mp3|ogg|flac)',ext):
+            catg = 'music'
+        elif regsearch('\.(zip|7z|tar|gz|rar|bz|xz|jar)',ext):
+            catg = 'archives'
+        return catg
         
-    def searchById(self,sid):
-        """Search the corresponding label in the index"""
+    def isEmpty(self):
+        """"""
+        r = [k for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)]
+        return len(r) == 0
+        
+    def getLabel(self, key):
+        """Get label corresponding to key in the index
+        :Returns: `str`|None label
+        """
+        value = ''
+        row   = self.get(key)
+        if row is not None :
+            value = row[self.LABEL]
+
+    def get(self, key):
+        """Get the corresponding key in the index
+        :Returns: `tuple` row
+        """
+        row = None
+        if key in self.dic : row = self.dic.get(key)
+        return row
+        
+    def getById(self,sid):
+        """Get the corresponding id in the index
+        :Returns: `str`|None key
+        """
         rt = RuTime(eval(__CALLER__(sid)))
         l  = None
         r = [k for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN) and self.dic[k][self.UID] == int(sid)]
         if len(r)==1: l = r[0]
         rt.stop()
         return l
+
+    def getByLabel(self,label):
+        """Get the corresponding label in the index
+        :Returns: `str`|None key
+        """
+        rt = RuTime(eval(__CALLER__(sid)))
+        l  = None
+        r = [k for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN) and self.dic[k][self.LABEL] == int(label)]
+        if len(r)==1: l = r[0]
+        rt.stop()
+        return l
     
-    def searchByFileHash(self,md5):
-        """"""
-        e = None
-        if md5 in self.dic:
-            e = True
-        return e
-    
-    def searchByPattern(self,pattern):
-        """"""
+    def getByPattern(self,pattern):
+        """Get ids corresponding to label matching the pattern in the index
+        :Returns: `[uid]`|None matchIds
+        """
         rt = RuTime(eval(__CALLER__(pattern)))
         l = None
         r = [ k for i,k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN) and regsearch(pattern,self.dic[k][self.LABEL]) is not None ]
@@ -366,6 +422,8 @@ class ImpraStorage:
     
     def __init__(self, conf, remIndex=False, wkdir=None):
         """"""
+        from impra.util import DEBUG_INFO
+        rt = RuTime(eval(__CALLER__()),DEBUG_INFO)
         if wkdir == None : wkdir = abspath(join(dirname( __file__ ), '..', 'wk'))
         self.wkdir   = wkdir
         self.conf    = conf
@@ -378,6 +436,7 @@ class ImpraStorage:
         self.delids  = []
         if remIndex  : self.removeIndex()
         self.index   = self.getIndex()
+        rt.stop()
 
     def _getIdIndex(self):
         """"""
@@ -408,29 +467,39 @@ class ImpraStorage:
                 encData = str(ms,'utf-8')
         return encData
 
+    def getIndexDefaultCatg(self):
+        """"""
+        usrName = self.conf.get('name','infos')
+        return {'catg':self.conf.get('types','catg'), 'users':{ ('%s' % self.mb.getHashName('all')) : 'all', ('%s' % self.mb.getHashName(usrName)) : usrName}}
+
     def getIndex(self):
         """"""
         from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_WARN, DEBUG_INFO       
         rt = RuTime(eval(__CALLER__()),DEBUG_INFO)
         index   = None
         encData = ''
-        uid     = self.conf.get('uid' ,'index')
-        date    = self.conf.get('date','index')
-        nid     = self.conf.get('nid' ,'index')
-        if nid==None : nid = 0
-        self._getIdIndex()
-        if self.idx :
+        uid     = self.conf.get('uid'  ,'index')
+        date    = self.conf.get('date ','index')
+        nid     = self.conf.get('nid'  ,'index')
+        tstamp  = self.conf.get('time' ,'index')
+        if nid is None : nid = 0
+        
+        if tstamp is not None and (datetime.now() - datetime.strptime(tstamp[:-7], '%Y-%m-%d %H:%M:%S')) < timedelta(minutes = 1) :
             # getFromFile
-            if uid != None and int(self.idx) == int(uid) and file_exists(self.pathInd):
+            if uid != None and file_exists(self.pathInd): # int(self.idx) == int(uid) 
+                self.idx = uid
                 encData = get_file_content(self.pathInd)
                 print('--\nindex in cache')
-            else:
+        else :
+            print('refresh index')        
+            self._getIdIndex()
+            if self.idx :
                 encData = self._getCryptIndex()
                 with open(self.pathInd, mode='w', encoding='utf-8') as o:
                     o.write(encData)
-        usrName = self.conf.get('name','infos')
-        usrHash = self.mb.getHashName(usrName)
-        index = ImpraIndex(self.conf.get('key','keys'),self.conf.get('mark','keys'), encData, {'catg':self.conf.get('types','catg'), 'users':{ ('%s' % self.mb.getHashName('all')) : 'all', ('%s' % usrHash) : usrName}}, int(nid))
+                self.conf.set('time',str(datetime.now()),'index')
+        
+        index = ImpraIndex(self.conf.get('key','keys'),self.conf.get('mark','keys'), encData, self.getIndexDefaultCatg(), int(nid))
         rt.stop()
         return index
         
@@ -456,85 +525,126 @@ class ImpraStorage:
         self.conf.set('uid',ids[1],'index')
         self.conf.set('date',date,'index')
         with open(self.pathInd, mode='w', encoding='utf-8') as o:
-            o.write(encData)        
-        self.ih.deleteBin()
-        #self.index = self.getIndex()
+            o.write(encData)
+        self.conf.set('time',str(datetime.now()),'index')
+        self.clean()
         rt.stop()
-
+    
+    def encryptTextFile(self,path):
+        """"""
+        cdata = self.index.km.subenc(get_file_content(path))
+        with open(self.fsplit.DIR_CACHE+'.~KirmahEnc', mode='w') as o:
+            o.write(cdata)
+        return self.fsplit.DIR_CACHE+'.~KirmahEnc'
+        
+    def decryptTextFile(self,path):
+        """"""
+        data  = self.index.km.subdec(get_file_content(path))
+        with open(path, mode='w') as o:
+            o.write(data)            
+    
     def addFile(self, path, label, usr='all', catg=''):
         """"""
         from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, DEBUG_INFO
         rt = RuTime(eval(__CALLER__('"%s","%s","%s"' % (path[:13]+'...',label,usr))),DEBUG_INFO)
-        
-        #~ hlst = self.fsplit.addFile(path,label)
-        #~ self.fsplit.deployFile(hlst,True)
+
         _, ext = splitext(path)
+        
         try:
             md5 = hash_md5_file(path)
-            print('--\nmd5sum `%s` %s' % (path,md5))
-            if not self.index.searchByFileHash(md5) :
+            print('--\nmd5sum `%s` %s' % (path,md5))                
+            if not self.index.get(md5) :
+                
+                if catg=='' : catg = self.index.getAutoCatg(ext)
+                
+                bFlag = ImpraIndex.FILE_BINARY
+                if not is_binary(path): 
+                    bFlag = ImpraIndex.FILE_CRYPT
+                    path  = self.encryptTextFile(path)
+                    
                 hlst = self.fsplit.addFile(path,md5)
                 if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : 
                     print(hlst['head'])
                     for v in hlst['data']:
                         print(v)
-                nameFrom = self.conf.get('name','infos')
-                self.index.addUser(nameFrom, self.mb.getHashName(nameFrom))
-
-                for row in hlst['data'] :
-                    msg  = self.mb.build(nameFrom,usr,hlst['head'][2],self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
-                    self.ih.send(msg.as_string(), self.rootBox)
-                    remove(self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
                 
-                self.index.add(hlst['head'][3],label,hlst['head'][1],ext,self.mb.getHashName(usr),catg,md5)
-                self.saveIndex()
-                self.conf.set('nid', str(self.index.id),'index')
+                ownerHash = self.mb.getHashName(usr)
+                self.index.addUser(usr,ownerHash)
+
+                cancel  = False
+                sendIds = []
+                test    = True
+                for row in hlst['data'] :
+                    msg  = self.mb.build(self.conf.get('name','infos'),usr,hlst['head'][2],self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
+                    mid  = self.ih.send(msg.as_string(), self.rootBox)
+                    if mid is not None :
+                        print('part %s sent as msg %s' % (row[0],mid[1]))
+                        sendIds.append((mid[1],row))
+                        remove(self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
+                    else:
+                        print('\n-- error occured when sending part : %s\n-- retrying' % row[0])
+                        mid  = self.ih.send(msg.as_string(), self.rootBox)
+                        if mid is not None :
+                            print('part %s sent as msg %s' % (row[0],mid[1]))
+                            sendIds.append((mid[1],row))
+                            remove(self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
+                        else: 
+                            print('\n-- can\'t send part %s\n-- cancelling ' % row[0])
+                            cancel = True
+                            break
+                
+                if cancel :
+                    for mid, row in sendIds :
+                        self.ih.delete(mid, True)
+                        if file_exists(self.fsplit.DIR_OUTBOX+row[1]+'.ipr') : remove(self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
+                    self.clean()
+                        
+                else :
+                    self.index.add(hlst['head'][3],label,hlst['head'][1],ext,ownerHash,catg,md5,bFlag)
+                    self.saveIndex()
+                    self.conf.set('nid', str(self.index.id),'index')
             else :
                 print('--\nfile already exist on server as `%s` [id:%i]\n' % (self.index.dic[md5][ImpraIndex.LABEL],self.index.dic[md5][ImpraIndex.UID]))
         except Exception as e :
             print(e)
         rt.stop()
 
-    def getFile(self,label):
+    def getFile(self,key):
         """"""
         from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, DEBUG_INFO
-        
-        rt  = RuTime(eval(__CALLER__('"%s"' % label)),DEBUG_INFO)
-        if label==None : 
-            print('--\n'+str(label)+' unexist')
+        row   = self.index.get(key)        
+        if row==None : 
+            print('--\n%s not on the server' % key)
         else :
-            key = self.index.search(label)
-            if label!=None and key!=None:
-                ck    = ConfigKey(key[ImpraIndex.HASH])
-                count = int(key[ImpraIndex.PARTS])
-                hlst  = ck.getHashList(label,count,True)
-                ids   = self._getIdsBySubject(hlst['head'][2])
-                if len(ids) >= count:
-                    status, resp = self.ih.srv.fetch(ids[0],'(BODY[HEADER.FIELDS (TO)])')
-                    to = bstr(resp[0][1][4:-4])
-                    if to == self.mb.getHashName('all')+'@'+self.mb.DOMAIN_NAME or to == self.mb.getHashName(self.conf.ini.get('name',self.conf.profile+'.infos'))+'@'+self.mb.DOMAIN_NAME :
-                        for mid in ids :
-                            self.ih.downloadAttachment(mid,self.fsplit.DIR_INBOX)
-                        if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : 
-                            print(hlst['head'])
-                            for v in hlst['data']:
-                                print(v)
-                        self.fsplit.deployFile(hlst, key[ImpraIndex.LABEL],  key[ImpraIndex.EXT], key[ImpraIndex.CATG])
-                    else :
-                        #raise Exception(label+' is private')
-                        print('--\n'+label+' is private')
+            rt  = RuTime(eval(__CALLER__('"[%i] %s"' % (row[ImpraIndex.UID],row[ImpraIndex.LABEL]))),DEBUG_INFO)
+            ck    = ConfigKey(row[ImpraIndex.HASH])
+            hlst  = ck.getHashList(key,row[ImpraIndex.PARTS],True)
+            ids   = self._getIdsBySubject(hlst['head'][2])
+            if len(ids) >= row[ImpraIndex.PARTS]:
+                status, resp = self.ih.srv.fetch(ids[0],'(BODY[HEADER.FIELDS (TO)])')
+                to = bstr(resp[0][1][4:-4])
+                if to == self.mb.getHashName('all')+'@'+self.mb.DOMAIN_NAME or to == self.mb.getHashName(self.conf.ini.get('name',self.conf.profile+'.infos'))+'@'+self.mb.DOMAIN_NAME :
+                    for mid in ids :
+                        self.ih.downloadAttachment(mid,self.fsplit.DIR_INBOX)
+                    if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : 
+                        print(hlst['head'])
+                        for v in hlst['data']:
+                            print(v)
+                    path = self.fsplit.deployFile(hlst, row[ImpraIndex.LABEL],  row[ImpraIndex.EXT], row[ImpraIndex.UID], row[ImpraIndex.CATG])
+                    if row[ImpraIndex.BFLAG] == ImpraIndex.FILE_CRYPT:
+                        self.decryptTextFile(path)
                 else :
-                    #raise Exception(label+' : invalid count parts '+str(len(ids))+'/'+str(count))
-                    print('--\n'+label+' : invalid count parts '+str(len(ids))+'/'+str(count))
-            else:
-                #raise Exception(str(label)+' not on the server')
-                print('--\n'+str(label)+' not on the server')
-        rt.stop()
+                    print('--\n`%s` is private' % row[ImpraIndex.LABEL])
+            else :
+                print('--\n`%s` invalid count parts %i/%i' %(row[ImpraIndex.LABEL],len(ids),row[ImpraIndex.PARTS]))
+
+            rt.stop()
 
     def clean(self):
         """"""
         rt = RuTime(eval(__CALLER__()))
-        self.index = self.getIndex()
+        self.ih.deleteBin()
+        if file_exists(self.fsplit.DIR_CACHE+'.~KirmahEnc'):remove(self.fsplit.DIR_CACHE+'.~KirmahEnc')
         rt.stop()
 
 

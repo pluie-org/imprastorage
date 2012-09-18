@@ -32,7 +32,10 @@ from impra.cli  import Cli
 
 
 if __name__ == '__main__':
-    
-    Cli(get_file_path(__file__ ))
+    #~ try :
+
+        Cli(get_file_path(__file__ ))
+    #~ except Exception as e :
+        #~ print(e)
 
 #python  -O -m compileall impra/*.py

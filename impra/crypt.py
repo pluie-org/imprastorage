@@ -26,7 +26,9 @@
 #   You should have received a copy of the GNU General Public License
 #   along with ImpraStorage.  If not, see <http://www.gnu.org/licenses/>.
 
-from impra.util import RuTime, __CALLER__, stack, DEBUG
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~ package crypt ~~
+
 from base64     import urlsafe_b64encode, b64decode
 from binascii   import b2a_base64, a2b_base64
 from hashlib    import sha256, md5
@@ -35,9 +37,11 @@ from random     import choice
 from os         import urandom
 from time       import sleep
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# ~~ package crypt ~~
+from impra.util import RuTime, __CALLER__, stack, DEBUG
 
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~ methods ~~
 
 def hash_sha256(data):
     """Get a sha256 hash of str `data`
@@ -226,17 +230,11 @@ class Kirmah:
         psize   = ceil(len(data)/cpart)
         cp      = 0
         for row in hlst['data']:
-            #~ print(row)
-            #~ print('ns:%i - dataLength:%i - dataEncLength:%i - ne:%i' % (row[2],len(data), len(dataEnc), row[3]))
-            #~ print(data[cp*psize:cp*psize+psize])            
             dataEnc += self.ck.noiser.getNoise(row[2],True)+data[cp*psize:cp*psize+psize]+self.ck.noiser.getNoise(row[3],True)
             cp      += 1
 
         dataEnc = str(b2a_base64(bytes(dataEnc,'utf-8')),'utf-8')
 
-        #~ dataEnc = self.subenc(odata)
-        #~ with open('./.KirmahENC', mode='w') as o:
-            #~ o.write(dataEnc)
         rt.stop()
         return dataEnc
     
@@ -255,27 +253,17 @@ class Kirmah:
         for row in hlst['data']:
             si = ni + row[2]
             ei = si + psize
-            #~ print(row)
-            #~ print('si:%i - ei:%i - datalength:%i - dataDeclength:%i' % (si,ei,len(data),len(dataDec)))
             if cp == cpart-1 :
                 ei = -row[3]                
                 if not si > len(data)+ei : pass
-                    ### to delete #si = len(data)+ei
-                    #~ print('si:%i - ei:%i' % (si,ei))
                 else :
-                    #~ print('si: - ei:%i' % (len(data)+ei-si))
                     dataDec=dataDec[:len(data)+ei-si]
                     break
-            #~ print(data[si:ei])
             dataDec += data[si:ei]
             ni  = ei + row[3]
             cp += 1
         dataDec = self.subdec(dataDec)
-
-        #~ dataDec = self.subdec(data)
-
-        #~ with open('./.KirmahDEC', mode='w') as o:
-            #~ o.write(dataDec)        
+  
         rt.stop()
         return dataDec
 
