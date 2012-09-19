@@ -29,7 +29,7 @@
 from impra.core import ImpraConf, ImpraStorage
 from impra.util import IniFile, RuTime, get_file_path
 from impra.cli  import Cli
-
+import sys, os
 
 if __name__ == '__main__':
     #~ try :
@@ -50,7 +50,9 @@ if __name__ == '__main__':
         #~ print('\033[1;46mHighlighted Cyan like Caribbean\033[1;m')
         #~ print('\033[1;47mHighlighted Gray like Ghost\033[1;m')
         #~ print('\033[1;48mHighlighted Crimson like Chianti\033[1;m')
-        Cli(get_file_path(__file__ ))
+        Cli(get_file_path(__file__ ))        
+        #os.system('echo python imprastorage data -l')
+        
     #~ except Exception as e :
         #~ print(e)
 

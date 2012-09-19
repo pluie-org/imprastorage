@@ -30,7 +30,7 @@
 # ~~ package cli ~~
     
 from optparse import OptionParser, OptionGroup
-import sys
+import sys, os, platform
 import impra.crypt as crypt
 import impra.util  as util
 import impra.core  as core
@@ -177,7 +177,6 @@ data command Examples:
             sys.exit(1)
 
         else:
-
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # ~~ conf CMD ~~
             if a[0] == 'conf' :
@@ -267,7 +266,9 @@ you can remove index but all presents files on the box %s will be unrecoverable
                                 print(mid,status,resp)
                             
                         elif o.add :
-                            impst.addFile(o.add[0],o.add[1],o.user,o.category)
+                            done = impst.addFile(o.add[0],o.add[1],o.user,o.category)
+                            if done :
+                                print('OK')
 
                         elif o.get :
                             ids = []
@@ -277,7 +278,10 @@ you can remove index but all presents files on the box %s will be unrecoverable
                                 else: ids.append(sid)
                             for sid in ids :                                
                                 key = impst.index.getById(str(sid))
-                                if key !=None : impst.getFile(key)
+                                if key !=None : 
+                                    done = impst.getFile(key)
+                                    if done :
+                                        print('OK')
                                 else: print('-- `%s` is not a valid id --' % sid)
 
                         elif o.search :

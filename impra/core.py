@@ -46,7 +46,7 @@ from os.path              import abspath, dirname, join, realpath, basename, get
 from re                   import split as regsplit, match as regmatch, compile as regcompile, search as regsearch
 from time                 import time
 from impra.imap           import ImapHelper, ImapConfig
-from impra.util           import __CALLER__, RuTime, formatBytes, randomFrom, bstr, quote_escape, stack, run, file_exists, get_file_content, DEBUG, DEBUG_ALL, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, mkdir_p, is_binary, C
+from impra.util           import __CALLER__, RuTime, formatBytes, randomFrom, bstr, quote_escape, stack, run, file_exists, get_file_content, DEBUG, DEBUG_ALL, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, mkdir_p, is_binary, C, clear
 from impra.crypt          import Kirmah, ConfigKey, Noiser, Randomiz, hash_sha256, hash_md5_file, BadKeyException
 
 LINE_SEP    = C.IBLACK+'―'*120+C.OFF
@@ -394,6 +394,7 @@ class ImpraIndex:
     def print(self,header='', matchIds=None):
         """Print index content as formated bloc"""
         data = self.toString(matchIds).split(self.SEP_ITEM)
+        clear()
         print(header)
         print(C.ON_IBLACK+' \
 %s%s%s' % (C.BYELLOW,'ID'      ,' '*1 )+'\
@@ -500,22 +501,22 @@ class ImpraStorage:
         nid     = self.conf.get('nid'  ,'index')
         tstamp  = self.conf.get('time' ,'index')
         if nid is None : nid = 0
-        
+        refresh = False
         if tstamp is not None and (datetime.now() - datetime.strptime(tstamp[:-7], '%Y-%m-%d %H:%M:%S')) < timedelta(minutes = 1) :
             # getFromFile
             if uid != None and file_exists(self.pathInd): # int(self.idx) == int(uid) 
                 self.idx = uid
                 encData = get_file_content(self.pathInd)
-                print('--\nindex in cache')
-        else :
-            print('refresh index')        
+            else: refresh = True
+        else: refresh = True
+        if refresh :
             self._getIdIndex()
             if self.idx :
                 encData = self._getCryptIndex()
                 with open(self.pathInd, mode='w', encoding='utf-8') as o:
                     o.write(encData)
                 self.conf.set('time',str(datetime.now()),'index')
-        
+
         index = ImpraIndex(self.conf.get('key','keys'),self.conf.get('mark','keys'), encData, self.getIndexDefaultCatg(), int(nid))
         rt.stop()
         return index
@@ -526,7 +527,9 @@ class ImpraStorage:
         if self.idx :
             self.ih.delete(self.idx, True)
         self.ih.deleteBin()
-        self.conf.rem('*','index')
+        self.conf.rem('*','index')        
+        self.idx = None
+        remove(self.pathInd)
 
     def saveIndex(self):
         """"""
@@ -547,6 +550,7 @@ class ImpraStorage:
         self.conf.set('time',str(datetime.now()),'index')
         self.clean()
         rt.stop()
+        return True
     
     def encryptTextFile(self,path):
         """"""
@@ -563,6 +567,7 @@ class ImpraStorage:
     
     def addFile(self, path, label, usr='all', catg=''):
         """"""
+        done = False
         from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, DEBUG_INFO
         rt = RuTime(eval(__CALLER__('"%s","%s","%s"' % (path[:13]+'...',label,usr))),DEBUG_INFO)
 
@@ -619,17 +624,19 @@ class ImpraStorage:
                         
                 else :
                     self.index.add(hlst['head'][3],label,hlst['head'][1],ext,ownerHash,catg,md5,bFlag)
-                    self.saveIndex()
+                    done = self.saveIndex()
                     self.conf.set('nid', str(self.index.id),'index')
             else :
                 print('--\nfile already exist on server as `%s` [id:%i]\n' % (self.index.dic[md5][ImpraIndex.LABEL],self.index.dic[md5][ImpraIndex.UID]))
         except Exception as e :
             print(e)
         rt.stop()
+        return done
 
     def getFile(self,key):
         """"""
         from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, DEBUG_INFO
+        done  = False
         row   = self.index.get(key)        
         if row==None : 
             print('--\n%s not on the server' % key)
@@ -651,12 +658,14 @@ class ImpraStorage:
                     path = self.fsplit.deployFile(hlst, row[ImpraIndex.LABEL],  row[ImpraIndex.EXT], row[ImpraIndex.UID], row[ImpraIndex.CATG])
                     if row[ImpraIndex.BFLAG] == ImpraIndex.FILE_CRYPT:
                         self.decryptTextFile(path)
+                    done = True
                 else :
                     print('--\n`%s` is private' % row[ImpraIndex.LABEL])
             else :
                 print('--\n`%s` invalid count parts %i/%i' %(row[ImpraIndex.LABEL],len(ids),row[ImpraIndex.PARTS]))
 
             rt.stop()
+        return done
 
     def clean(self):
         """"""
