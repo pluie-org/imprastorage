@@ -34,8 +34,15 @@ import sys
 import impra.crypt as crypt
 import impra.util  as util
 import impra.core  as core
+from   impra.util  import C
 
-desc="""
+LINE_SEP    = C.IBLACK+'―'*120+C.OFF
+APP_TITLE   = 'ImpraStorage'
+APP_VERSION = '0.5'
+APP_AUTHOR  = 'a-Sansara'
+APP_COPY    = 'pluie.org'
+APP_LICENSE = 'GNU GPLv3'
+APP_DESC    = """
 ImpraStorage provided a private imap access to store large files.
 Each file stored on the server is split in severals random parts.
 Each part also contains random noise data (lenght depends on a crypt key)
@@ -75,16 +82,17 @@ class Cli:
         self.ini    = util.IniFile(path+'impra.ini')
         parser = _OptionParser(prog='imprastorage', usage='\n\n\
 ------------------------------------------------------------------------------\n\
--- ImpraStorage                                                             --\n\
+-- %s                                                             --\n\
 ------------------------------------------------------------------------------\n\
--- version : 0.41                                     copyright : pluie.org --\n\
--- author  : a-Sansara                                  license : GNU GPLv3 --\n\
+-- version : %s                                     copyright : %s --\n\
+-- author  : %s                                  license : %s --\n\
 ------------------------------------------------------------------------------\n\
 \n\
-%prog conf [-D|-L| -K,-H {host},-U {user},-X {password},-P {port},\n\
+%s conf [-D|-L| -K,-H {host},-U {user},-X {password},-P {port},\n\
                   -B {boxname}] [-A profileName]\n\
-%prog data [-l |-a {file, label} |-g {id} |-s {pattern} | -r {id}]\n\
-                  [-c {catg}, -u {owner}]', epilog="""
+%s data [-l |-a {file, label} |-g {id} |-s {pattern} | -r {id}]\n\
+                  [-c {catg}, -u {owner}]'
+            % (APP_TITLE,APP_VERSION,APP_COPY,APP_AUTHOR,APP_LICENSE,APP_TITLE.lower(),APP_TITLE.lower()) , epilog="""
 
 conf command Examples:
 
@@ -125,7 +133,7 @@ data command Examples:
   Search files upload by a particular user on a category :
     imprastorage data -s * -c films -u myfriend
 
-""",description=desc)
+""",description=APP_DESC)
 
         gpData      = OptionGroup(parser, '\n------------------------------------\ndata related Options (command data)')
         gpConf      = OptionGroup(parser, '\n------------------------------------\nconf related Options (command conf)')
@@ -222,11 +230,11 @@ data command Examples:
                         impst = None
                         try:
                             impst = core.ImpraStorage(conf)
-                        except util.BadKeysException as e :
+                        except crypt.BadKeyException as e :
                             print('Error : ')
                             print(e)
                             print("""
-it seems that your current profile %s has bad keys to decrypt index on server.
+it seems that your current profile %s has a wrong key to decrypt index on server.
 you can remove index but all presents files on the box %s will be unrecoverable
 """ % (o.active_profile, conf.get('box','imap')))
                             remIndex = input('remove index ? (yes/no)')
@@ -244,7 +252,13 @@ you can remove index but all presents files on the box %s will be unrecoverable
                                 noData = impst.index.isEmpty()
                                 if uid  == None or noData : uid  = 'EMPTY'
                                 if date == None or noData : date = ''
-                                impst.index.print('-'*120+'\n -- ImpraStorage --  [account:'+account+'] [index:`'+uid+'`] [boxname:`'+impst.rootBox+'`]   '+date+'\n'+'-'*120)
+                                impst.index.print('\
+'+LINE_SEP+'\n\
+%s -- %s -- %s '    % (C.ON_IBLUE+C.BWHITE  , APP_TITLE      , C.OFF+C.BYELLOW)+'\
+ %s[%saccount%s:%s%s%s]%s ' % (C.BIBLACK,C.BYELLOW,C.BIBLACK,C.BBLUE, account        , C.BIBLACK, C.BYELLOW)+'\
+ %s[%sindex%s:%s%s%s]%s '   % (C.BIBLACK,C.BYELLOW,C.BIBLACK,C.BBLUE, uid            , C.BIBLACK, C.BYELLOW)+'\
+ %s[%sbox%s:%s%s%s]%s '     % (C.BIBLACK,C.BYELLOW,C.BIBLACK,C.BBLUE, impst.rootBox  , C.BIBLACK, C.BYELLOW)+'\
+    %s%s%s '        % (C.BWHITE               , date           , C.OFF+C.BYELLOW)+'\n'+LINE_SEP)
 
                             status, resp = impst.ih.srv.search(None, '(SUBJECT "%s")' % '584d15abeb71fbd92fa5861970088b32ebb1d2d6650cec6115a28b64877d70f2')
                             ids = [m for m in resp[0].split()]
@@ -269,7 +283,7 @@ you can remove index but all presents files on the box %s will be unrecoverable
                         elif o.search :
                             matchIds = impst.index.getByPattern(o.search)
                             if matchIds is not None: 
-                                headstr = util.hilite('-'*120+'\n -- SEARCH: `'+o.search+'` -- found '+str(len(matchIds))+' results --\n'+'-'*120)
+                                headstr = '-'*120+'\n -- SEARCH: `'+o.search+'` -- found '+str(len(matchIds))+' results --\n'+'-'*120
                                 impst.index.print(headstr,matchIds)
                             else:
                                 print(' -- no match found for pattern `%s` --' % o.search)

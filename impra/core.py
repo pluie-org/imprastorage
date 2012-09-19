@@ -46,9 +46,10 @@ from os.path              import abspath, dirname, join, realpath, basename, get
 from re                   import split as regsplit, match as regmatch, compile as regcompile, search as regsearch
 from time                 import time
 from impra.imap           import ImapHelper, ImapConfig
-from impra.util           import __CALLER__, RuTime, formatBytes, randomFrom, bstr, quote_escape, stack, run, file_exists, get_file_content, DEBUG, DEBUG_ALL, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, mkdir_p, is_binary
-from impra.crypt          import Kirmah, ConfigKey, Noiser, Randomiz, hash_sha256, hash_md5_file 
+from impra.util           import __CALLER__, RuTime, formatBytes, randomFrom, bstr, quote_escape, stack, run, file_exists, get_file_content, DEBUG, DEBUG_ALL, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, mkdir_p, is_binary, C
+from impra.crypt          import Kirmah, ConfigKey, Noiser, Randomiz, hash_sha256, hash_md5_file, BadKeyException
 
+LINE_SEP    = C.IBLACK+'―'*120+C.OFF
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~ class FSplitter ~~
@@ -199,6 +200,13 @@ class ImpraConf:
         self.ini.write()
         return v
 
+    def rem(self, key, section='main', profile=None):
+        """"""
+        if profile == None : profile = self.profile
+        v = self.ini.rem(key, profile+self.SEP_SECTION+section)
+        self.ini.write()
+        return v
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~ class ImpraIndex ~~
@@ -206,7 +214,7 @@ class ImpraConf:
 class ImpraIndex:
     """A representation of the index stored on the server"""
     
-    SEP_ITEM       = ';'
+    SEP_ITEM       = '―'
     """Separator used for entry"""
     
     SEP_TOKEN      = '#'
@@ -366,27 +374,6 @@ class ImpraIndex:
         rt.stop()
         return l
 
-    def toString(self,matchIds):
-        """Make a string representation of the index as it was store on the server"""
-        data = ''
-        r = [k for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)]
-        for k in r :
-            v = self.dic.get(k)
-            k = k.lstrip('\n\r')
-            if not k[0]==self.SEP_KEY_INTERN and len(k)>1:
-                if matchIds==None or v[self.UID] in matchIds:
-                    data += str(v[self.UID]).rjust(1+ceil(len(str(v[self.UID]))/10),' ')+'  '
-                    data += str(k)[0:12]+'...  '
-                    data += str(v[self.LABEL]).ljust(42,' ')+'   '
-                    data += str(v[self.PARTS]).rjust(2,'0')+'   '
-                    data += str(v[self.EXT]).ljust(5,' ')+'  '
-                    data += self.getUser(str(v[self.OWNER])).ljust(15,' ')+'  '
-                    data += str(v[self.CATG])+'  '
-            #~ elif len(k)>1:
-                #~ print(k,'=',v)
-            data = data+self.SEP_ITEM
-        return data;
-
     def encrypt(self):
         """"""
         #~ print('encrypting index :')
@@ -397,21 +384,51 @@ class ImpraIndex:
     def decrypt(self,data):
         """"""
         #~ print('decrypting index : ')
-        jdata = self.km.decrypt(data,'.index',22)
-        #~ print(jdata)
-        data  = jloads(jdata)
+        try :
+            jdata = self.km.decrypt(data,'.index',22)        
+            data  = jloads(jdata)
+        except ValueError as e:
+            raise BadKeyException(e)
         return data
 
     def print(self,header='', matchIds=None):
         """Print index content as formated bloc"""
         data = self.toString(matchIds).split(self.SEP_ITEM)
         print(header)
-        print('id'+' '*2+'hash'+' '*13+'label'+' '*40+'part'+' '*2+'type'+' '*2+'owner'+' '*12+'category')
-        print('-'*120)
+        print(C.ON_IBLACK+' \
+%s%s%s' % (C.BYELLOW,'ID'      ,' '*1 )+'\
+%s%s%s' % (C.BYELLOW,'HASH'    ,' '*15)+'\
+%s%s%s' % (C.BYELLOW,'LABEL'   ,' '*38)+'\
+%s%s%s' % (C.BYELLOW,'PART'    ,' '*2 )+'\
+%s%s%s' % (C.BYELLOW,'TYPE'    ,' '*2 )+'\
+%s%s%s' % (C.BYELLOW,'OWNER'   ,' '*12)+'\
+%s%s%s' % (C.BYELLOW,'CATEGORY',' '*17)+C.OFF+'\n'+LINE_SEP)
         for row in data: 
             if row.rstrip('\n') != '': print(row)
-        print('-'*120)
+        print(LINE_SEP)
             
+    def toString(self,matchIds):
+        """Make a string representation of the index as it was store on the server"""
+        data = ''
+        r = [k for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)]
+        for k in r :
+            v = self.dic.get(k)
+            k = k.lstrip('\n\r')
+
+            if not k[0]==self.SEP_KEY_INTERN and len(k)>1:
+                if matchIds==None or v[self.UID] in matchIds:
+                    data += '%s%s%s' % (C.BIRED   , str(v[self.UID]).rjust(1+ceil(len(str(v[self.UID]))/10),' '), ' '*2)
+                    data += '%s%s%s' % (C.IGREEN  , str(k)[0:12]+'...  '                                        , ' '*2)
+                    data += '%s%s%s' % (C.BWHITE  , str(v[self.LABEL]).ljust(42,' ')                            , ' '*2)
+                    data += '%s%s%s' % (C.BPURPLE , str(v[self.PARTS]).rjust(2 ,'0')                            , ' '*2)
+                    data += '%s%s%s' % (C.BIGREEN , str(v[self.EXT]).ljust(5,' ')                               , ' '*2)
+                    data += '%s%s%s' % (C.BWHITE  , self.getUser(str(v[self.OWNER])).ljust(15,' ')              , ' '*2)
+                    data += '%s%s%s' % (C.BBLUE   , str(v[self.CATG])                                           , ' '*2)
+
+            #~ elif len(k)>1:
+                #~ print(k,'=',v)
+            data = data+self.SEP_ITEM
+        return data;
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -509,6 +526,7 @@ class ImpraStorage:
         if self.idx :
             self.ih.delete(self.idx, True)
         self.ih.deleteBin()
+        self.conf.rem('*','index')
 
     def saveIndex(self):
         """"""

@@ -317,3 +317,10 @@ class Noiser:
         if noBytes:
             n = str(urlsafe_b64encode(n),'utf-8')[0:l]
         return n
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~ class BadKeyException ~~
+
+class BadKeyException(BaseException):
+    pass
