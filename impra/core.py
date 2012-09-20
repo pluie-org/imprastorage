@@ -46,10 +46,9 @@ from os.path              import abspath, dirname, join, realpath, basename, get
 from re                   import split as regsplit, match as regmatch, compile as regcompile, search as regsearch
 from time                 import time
 from impra.imap           import ImapHelper, ImapConfig
-from impra.util           import __CALLER__, RuTime, formatBytes, randomFrom, bstr, quote_escape, stack, run, file_exists, get_file_content, DEBUG, DEBUG_ALL, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, mkdir_p, is_binary, C, clear
+from impra.util           import __CALLER__, RuTime, formatBytes, randomFrom, bstr, quote_escape, stack, run, file_exists, get_file_content, DEBUG, DEBUG_ALL, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, mkdir_p, is_binary, clear, Clz
 from impra.crypt          import Kirmah, ConfigKey, Noiser, Randomiz, hash_sha256, hash_md5_file, BadKeyException
 
-LINE_SEP    = C.IBLACK+'―'*120+C.OFF
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~ class FSplitter ~~
@@ -393,43 +392,34 @@ class ImpraIndex:
 
     def print(self,header='', matchIds=None):
         """Print index content as formated bloc"""
-        data = self.toString(matchIds).split(self.SEP_ITEM)
-        clear()
-        print(header)
-        print(C.ON_IBLACK+' \
-%s%s%s' % (C.BYELLOW,'ID'      ,' '*1 )+'\
-%s%s%s' % (C.BYELLOW,'HASH'    ,' '*15)+'\
-%s%s%s' % (C.BYELLOW,'LABEL'   ,' '*38)+'\
-%s%s%s' % (C.BYELLOW,'PART'    ,' '*2 )+'\
-%s%s%s' % (C.BYELLOW,'TYPE'    ,' '*2 )+'\
-%s%s%s' % (C.BYELLOW,'OWNER'   ,' '*12)+'\
-%s%s%s' % (C.BYELLOW,'CATEGORY',' '*17)+C.OFF+'\n'+LINE_SEP)
-        for row in data: 
-            if row.rstrip('\n') != '': print(row)
-        print(LINE_SEP)
-            
-    def toString(self,matchIds):
-        """Make a string representation of the index as it was store on the server"""
+        #clear()
+        if header is not '':print(header)
+        from impra.cli import printLineSep, LINE_SEP_LEN, LINE_SEP_CHAR
+        #printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+        Clz.print(' ID'+' '*1, Clz.BG4+Clz.fgB7, False, False)
+        print('HASH'  +' '*15, end='')
+        print('LABEL' +' '*38, end='')
+        print('PART'  +' '*2 , end='')
+        print('TYPE'  +' '*2 , end='')
+        print('OWNER' +' '*12, end='')
+        Clz.print('CATEGORY'+' '*17, Clz.BG4+Clz.fgB7)        
+        printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
         data = ''
         r = [k for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)]
         for k in r :
             v = self.dic.get(k)
             k = k.lstrip('\n\r')
-
             if not k[0]==self.SEP_KEY_INTERN and len(k)>1:
                 if matchIds==None or v[self.UID] in matchIds:
-                    data += '%s%s%s' % (C.BIRED   , str(v[self.UID]).rjust(1+ceil(len(str(v[self.UID]))/10),' '), ' '*2)
-                    data += '%s%s%s' % (C.IGREEN  , str(k)[0:12]+'...  '                                        , ' '*2)
-                    data += '%s%s%s' % (C.BWHITE  , str(v[self.LABEL]).ljust(42,' ')                            , ' '*2)
-                    data += '%s%s%s' % (C.BPURPLE , str(v[self.PARTS]).rjust(2 ,'0')                            , ' '*2)
-                    data += '%s%s%s' % (C.BIGREEN , str(v[self.EXT]).ljust(5,' ')                               , ' '*2)
-                    data += '%s%s%s' % (C.BWHITE  , self.getUser(str(v[self.OWNER])).ljust(15,' ')              , ' '*2)
-                    data += '%s%s%s' % (C.BBLUE   , str(v[self.CATG])                                           , ' '*2)
+                    Clz.print(str(v[self.UID]).rjust(1+ceil(len(str(v[self.UID]))/10),' ') +' '*2, Clz.fgB1, False)
+                    Clz.print(str(k)[0:12]+'...  ' +' '*2, Clz.fgn2, False)
+                    Clz.print(str(v[self.LABEL]).ljust(42,' ') +' '*2, Clz.fgB7, False)
+                    Clz.print(str(v[self.PARTS]).rjust(2 ,'0') +' '*2, Clz.fgB5, False)
+                    Clz.print(str(v[self.EXT]).ljust(5,' ') +' '*2, Clz.fgB4, False)
+                    Clz.print(self.getUser(str(v[self.OWNER])).ljust(15,' ') +' '*2, Clz.fgB7, False)
+                    Clz.print(str(v[self.CATG]) +' '*2, Clz.fgB4)
 
-            #~ elif len(k)>1:
-                #~ print(k,'=',v)
-            data = data+self.SEP_ITEM
-        return data;
+        printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

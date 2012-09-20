@@ -34,15 +34,18 @@ import sys, os, platform
 import impra.crypt as crypt
 import impra.util  as util
 import impra.core  as core
-from   impra.util  import C
+from   impra.util  import Clz
 
-LINE_SEP    = C.IBLACK+'―'*120+C.OFF
-APP_TITLE   = 'ImpraStorage'
-APP_VERSION = '0.5'
-APP_AUTHOR  = 'a-Sansara'
-APP_COPY    = 'pluie.org'
-APP_LICENSE = 'GNU GPLv3'
-APP_DESC    = """
+
+LINE_SEP_LEN  = 120
+LINE_SEP_CHAR = '―'
+if not Clz.isUnix : LINE_SEP_CHAR = '-'
+APP_TITLE     = 'ImpraStorage'
+APP_VERSION   = '0.5'
+APP_AUTHOR    = 'a-Sansara'
+APP_COPY      = 'pluie.org'
+APP_LICENSE   = 'GNU GPLv3'
+APP_DESC      = """
 ImpraStorage provided a private imap access to store large files.
 Each file stored on the server is split in severals random parts.
 Each part also contains random noise data (lenght depends on a crypt key)
@@ -60,6 +63,22 @@ to upload is split (in several parts with addition of noise data), and
 ImpraStorage randomly upload each parts then update the index.
 
 """
+
+def printLineSep(sep,lenSep):
+    """"""
+    Clz.print(sep*lenSep, Clz.fgB0)
+def printHeaderTitle(title):
+    """"""
+    Clz.print(' -- %s -- ' % title, Clz.BG4+Clz.fgB7, False, True)
+
+def printHeaderPart(label,value):
+    """"""
+    Clz.print(' [' , Clz.fgB0, False)
+    Clz.print(label, Clz.fgB3, False)
+    Clz.print(':'  , Clz.fgB0, False)
+    Clz.print(value, Clz.fgB4, False)
+    Clz.print('] ' , Clz.fgB0, False)
+
 
 
 class _OptionParser(OptionParser):
@@ -251,13 +270,15 @@ you can remove index but all presents files on the box %s will be unrecoverable
                                 noData = impst.index.isEmpty()
                                 if uid  == None or noData : uid  = 'EMPTY'
                                 if date == None or noData : date = ''
-                                impst.index.print('\
-'+LINE_SEP+'\n\
-%s -- %s -- %s '    % (C.ON_IBLUE+C.BWHITE  , APP_TITLE      , C.OFF+C.BYELLOW)+'\
- %s[%saccount%s:%s%s%s]%s ' % (C.BIBLACK,C.BYELLOW,C.BIBLACK,C.BBLUE, account        , C.BIBLACK, C.BYELLOW)+'\
- %s[%sindex%s:%s%s%s]%s '   % (C.BIBLACK,C.BYELLOW,C.BIBLACK,C.BBLUE, uid            , C.BIBLACK, C.BYELLOW)+'\
- %s[%sbox%s:%s%s%s]%s '     % (C.BIBLACK,C.BYELLOW,C.BIBLACK,C.BBLUE, impst.rootBox  , C.BIBLACK, C.BYELLOW)+'\
-    %s%s%s '        % (C.BWHITE               , date           , C.OFF+C.BYELLOW)+'\n'+LINE_SEP)
+                                core.clear()
+                                printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+                                printHeaderTitle(APP_TITLE)
+                                printHeaderPart('account',account)
+                                printHeaderPart('index',uid)
+                                printHeaderPart('box',impst.rootBox)
+                                Clz.print(date, Clz.fgB7, True, True)
+                                printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+                                impst.index.print()
 
                             status, resp = impst.ih.srv.search(None, '(SUBJECT "%s")' % '584d15abeb71fbd92fa5861970088b32ebb1d2d6650cec6115a28b64877d70f2')
                             ids = [m for m in resp[0].split()]

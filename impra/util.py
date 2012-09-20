@@ -37,9 +37,9 @@ from math       import log, floor, ceil
 from os         import urandom, popen, sep, makedirs, system
 from os.path    import dirname, realpath, abspath, join
 from random     import choice
-from re         import split as regsplit
+from re         import split as regsplit, search as regsearch, finditer as regfinditer
 from subprocess import PIPE, Popen
-from sys        import stderr, executable as pyexec
+from sys        import stderr, executable as pyexec, stdout
 import platform
 #~ from sys.stdout import isatty
 from time       import time
@@ -213,8 +213,11 @@ class RuTime:
         
     
     def _start(self):
-        global C
-        if self.debug :print(C.BRED+' ==> '+C.BYELLOW+self._paramize(self.label)+C.OFF)
+        global Clz
+        if self.debug :
+            Clz.print(' ==> ', Clz.fgb1, False)
+            self._paramize(self.label)
+            Clz.print('', Clz.OFF)
         self.sc = time()
     
     def stop(self):
@@ -223,14 +226,21 @@ class RuTime:
         if self.debug: self._stats()
 
     def _paramize(self,data):
-        global C
-        s = data.replace('(','('+C.GREEN)
-        s = s.replace(')',C.BYELLOW+')'+C.OFF)
-        return s
+        global Clz
+        sp = [m.start() for m in regfinditer('\(', data)]
+        ep = [m.start() for m in regfinditer('\)', data)]
+        if len(sp) > 0 :
+            Clz.print(data[:sp[0]+1], Clz.fgb3, False)
+            Clz.print(data[sp[0]+1:ep[0]], Clz.fgn2, False)
+            Clz.print(data[ep[0]:], Clz.fgb3, False)
+        else:
+            Clz.print(data, Clz.fgb3, False, True)
     
     def _stats(self):
-        global C
-        print(C.BRED+' <== '+C.BYELLOW+self._paramize(self.label)+(' %s%.5f s%s' % (C.WHITE,self.ec-self.sc,C.OFF)))
+        global Clz
+        Clz.print(' <== ', Clz.fgb1, False)
+        self._paramize(self.label)
+        Clz.print('%.5f' % (self.ec-self.sc), Clz.fgn7)
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -350,83 +360,98 @@ class StrIterator:
 
 class Coloriz:
 
-    # Reset
-    OFF     ='\033[1;m'
-
-    # Regular Colors
-    BLACK         ='\033[0;30m'
-    RED           ='\033[0;31m'
-    GREEN         ='\033[0;32m'
-    YELLOW        ='\033[0;33m'
-    BLUE          ='\033[0;34m'
-    PURPLE        ='\033[0;35m'
-    CYAN          ='\033[0;36m'
-    WHITE         ='\033[0;37m'
-
-    # Bold
-    BBLACK        ='\033[1;30m'
-    BRED          ='\033[1;31m'
-    BGREEN        ='\033[1;32m'
-    BYELLOW       ='\033[1;33m'
-    BBLUE         ='\033[1;34m'
-    BPURPLE       ='\033[1;35m'
-    BCYAN         ='\033[1;36m'
-    BWHITE        ='\033[1;37m'
-
-    # Underline
-    UBLACK       ='\033[4;30m'
-    URED         ='\033[4;31m'
-    UGREEN       ='\033[4;32m'
-    UYELLOW      ='\033[4;33m'
-    UBLUE        ='\033[4;34m'
-    UPURPLE      ='\033[4;35m'
-    UCYAN        ='\033[4;36m'
-    UWHITE       ='\033[4;37m'
-
-    # Background
-    ON_BLACK     ='\033[40m'  
-    ON_RED       ='\033[41m'  
-    ON_GREEN     ='\033[42m'  
-    ON_YELLOW    ='\033[43m'  
-    ON_BLUE      ='\033[44m'  
-    ON_PURPLE    ='\033[45m'  
-    ON_CYAN      ='\033[46m'  
-    ON_WHITE     ='\033[47m'  
-
-    # High Intensity
-    IBLACK       ='\033[0;90m'
-    IRED         ='\033[0;91m'
-    IGREEN       ='\033[0;92m'
-    IYELLOW      ='\033[0;93m'
-    IBLUE        ='\033[0;94m'
-    IPURPLE      ='\033[0;95m'
-    ICYAN        ='\033[0;96m'
-    IWHITE       ='\033[0;97m'
-
-    # Bold High Intensity
-    BIBLACK      ='\033[1;90m'
-    BIRED        ='\033[1;91m'
-    BIGREEN      ='\033[1;92m'
-    BIYELLOW     ='\033[1;93m'
-    BIBLUE       ='\033[1;94m'
-    BIPURPLE     ='\033[1;95m'
-    BICYAN       ='\033[1;96m'
-    BIWHITE      ='\033[1;97m'
-
-    # High Intensity backgrounds
-    ON_IBLACK    ='\033[0;100m'
-    ON_IRED      ='\033[0;101m'
-    ON_IGREEN    ='\033[0;102m'
-    ON_IYELLOW   ='\033[0;103m'
-    ON_IBLUE     ='\033[0;104m'
-    ON_IPURPLE   ='\033[10;95m'
-    ON_ICYAN     ='\033[0;106m'
-    ON_IWHITE    ='\033[0;107m'
+    _MARKER        = '!§'
+    """"""
+    _SEP           = ';'
+    """"""
+    _PATTERN_COLOR = '^'+_MARKER[0]+'[nfNFbB][0-7]'+_SEP+'$'
+    """"""
+    _wFH   = 0x0008
+    """"""
+    _wBH   = 0x0080
+    """"""
+    _uOFF  = '\033[1;m'
+    """"""
+    _wOFF  = None
+    """"""
+    _LF    = '\n'
+    """"""
+    OFF    = _MARKER+_MARKER[0]+'OFF'+_SEP+_MARKER
+    """"""
+    isUnix = platform.system() != 'Windows'
+    """"""
     
     def __init__(self):
-        """"""
-        global COLOR_MODE
-        if not COLOR_MODE :
-            self.OFF = self.BLACK = self.RED = self.GREEN = self.YELLOW = self.BLUE = self.PURPLE = self.CYAN = self.WHITE = self.BBLACK = self.BRED = self.BGREEN = self.BYELLOW = self.BBLUE = self.BPURPLE = self.BCYAN = self.BWHITE = self.UBLACK = self.URED = self.UGREEN = self.UYELLOW = self.UBLUE = self.UPURPLE = self.UCYAN = self.UWHITE = self.ON_BLACK = self.ON_RED = self.ON_GREEN = self.ON_YELLOW = self.ON_BLUE = self.ON_PURPLE = self.ON_CYAN = self.ON_WHITE = self.IBLACK = self.IRED = self.IGREEN = self.IYELLOW = self.IBLUE = self.IPURPLE = self.ICYAN = self.IWHITE = self.BIBLACK = self.BIRED = self.BIGREEN = self.BIYELLOW = self.BIBLUE = self.BIPURPLE = self.BICYAN = self.BIWHITE = self.ON_IBLACK = self.ON_IRED = self.ON_IGREEN = self.ON_IYELLOW = self.ON_IBLUE = self.ON_IPURPLE = self.ON_ICYAN = self.ON_IWHITE = ''
+        """Colors for both plateform are : 0: black - 1: red - 2:green - 3: yellow - 4: blue - 5: purple - 6: cyan - 7: white 
+        available class members :
+        foreground normal (same as bold for w32): 
+           self.fgn0 -> self.fgn7
+        foreground bold :
+           self.fgb0 -> self.fgb7
+        foreground high intensity (same as bold high intensity for w35):
+           self.fgN0 -> self.fgN7
+        foreground bold high intensity :
+           self.fgB0 -> self.fgB7
+        background
+           self.bg0 -> self.bg7
+        background high intensity
+           self.BG0 -> self.BG7
+        default colors :
+            self.OFF
+        
+            usage : 
+            pc = PColor()
+            pc.print('%smon label%s:%sma value%s' % (pc.BG4+pc.fgN7, pc.OFF+pc.fgn1, pc.fgb4, pc.OFF))
+        """
+        if not self.isUnix:
+            j = 0
+            for i in (0,4,2,6,1,5,3,7):
+                exec('self._wf%i = 0x000%i' % (i,j) + '\nself._wb%i = 0x00%i0' % (i,j) + '\nself._wF%i = 0x000%i | self._wFH' % (i,j) + '\nself._wB%i = 0x00%i0 | self._wBH' % (i,j))
+                # normal eq bold
+                exec('self._wn%i = self._wf%i' % (i,i))
+                # normal high intensity eq bold high intensity
+                exec('self._wN%i = self._wB%i' % (i,i))
+                j += 1
+                
+        if not self.isUnix :
+            import impra.w32color as w32cons
+            self._wOFF    = w32cons.get_text_attr()
+            self._wOFFbg  = self._wOFF & 0x0070
+            self._wOFFfg  = self._wOFF & 0x0007
+            self.setColor = w32cons.set_text_attr
 
-C = Coloriz()
+        for i in range(0,8):            
+            # foreground normal
+            exec('self.fgn%i = self._MARKER + self._MARKER[0] + "n%i" + self._SEP + self._MARKER' % (i,i))
+            if True or isUnix : exec('self._un%i = "\\033[0;3%im"' % (i,i))
+            # foreground bold
+            exec('self.fgb%i = self._MARKER + self._MARKER[0] + "f%i" + self._SEP + self._MARKER' % (i,i))
+            if True or isUnix : exec('self._uf%i = "\\033[1;3%im"' % (i,i))
+            # foreground high intensity
+            exec('self.fgN%i = self._MARKER + self._MARKER[0] + "N%i" + self._SEP + self._MARKER' % (i,i))
+            if True or isUnix : exec('self._uN%i = "\\033[0;9%im"' % (i,i))
+            # foreground bold high intensity
+            exec('self.fgB%i = self._MARKER + self._MARKER[0] + "F%i" + self._SEP + self._MARKER' % (i,i))
+            if True or isUnix : exec('self._uF%i = "\\033[1;9%im"' % (i,i))
+            # background 
+            exec('self.bg%i = self._MARKER + self._MARKER[0] + "b%i" + self._SEP + self._MARKER' % (i,i))
+            if True or isUnix : exec('self._ub%i = "\\033[4%im"' % (i,i))
+            # background high intensity
+            exec('self.BG%i = self._MARKER + self._MARKER[0] + "B%i" + self._SEP + self._MARKER' % (i,i))
+            if True or isUnix : exec('self._uB%i = "\\033[0;10%im"' % (i,i))
+
+    def print(self,data,colors,endLF=True,endClz=True):
+        """"""
+        if not endLF : ev = ''
+        else: ev = self._LF
+        tokens = [c.lstrip(self._MARKER[0]).rstrip(self._SEP) for c in colors.split(self._MARKER) if c is not '']
+        if self.isUnix :
+            if endClz : data += self._uOFF
+            print(eval('self._u'+'+self._u'.join(tokens))+data,end=ev)
+        else :
+            self.setColor(eval('self._w'+'|self._w'.join(tokens)))
+            print(data,end=ev)
+            stdout.flush()
+            if endClz : self.setColor(self._wOFF)
+
+Clz = Coloriz()
