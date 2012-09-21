@@ -35,9 +35,9 @@ from email.message    import Message
 from imaplib          import IMAP4_SSL, Time2Internaldate
 from os.path          import join
 from re               import search, split
-from time             import time
+from time             import time, sleep
 
-from impra.util       import __CALLER__, RuTime, bstr, stack
+from impra.util       import __CALLER__, RuTime, bstr, stack, Clz
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -305,6 +305,7 @@ class ImapHelper:
         self.srv.select(self.BOX_BIN)
         ids = self.search('ALL',True)        
         if len(ids) > 0 and ids[0]!='' and ids[0]!=None:
+            print()
             #print(str(ids[0],'utf-8').split())
             for mid in ids:                
                 #~ uid = bytes(mid)
@@ -312,11 +313,14 @@ class ImapHelper:
                 #~ print(mid)
                 #status, resp = self.srv.store(mid, '+FLAGS', '\\Deleted')
                 status, resp = self.srv.uid('store', mid, '+FLAGS', '\\Deleted' )
-                print('deleting msg %i' % int(mid))
+                print(' ',end='')
+                Clz.print(' deleting msg ',Clz.fgN7+Clz.bg1, False)
+                Clz.print(str(int(mid))   ,Clz.bg1+Clz.fgB3)
                 if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE:                    
                     print(status)
                     print(resp)
             self.srv.expunge()
+            print()
         self.srv.select(self.rootBox)  
         rt.stop()
         
@@ -329,7 +333,14 @@ class ImapHelper:
                 status, resp = self.srv.uid( 'store', mid, '+FLAGS', '\\Deleted' )
             else :
                 status, resp = self.srv.store(mid, '+FLAGS', '\\Deleted')
+            Clz.print(' flag msg ' , Clz.fgn7, False)
+            Clz.print(str(mid)     , Clz.fgB1, False)
+            Clz.print(' as deleted', Clz.fgn7)
+
+            Clz.print('\n expunge, waiting server...\n', Clz.fgB1)
             self.srv.expunge()
+            sleep(2)
+            
         rt.stop()
         return status == self.OK
 

@@ -66,10 +66,10 @@ ImpraStorage randomly upload each parts then update the index.
 
 def printLineSep(sep,lenSep):
     """"""
-    Clz.print(sep*lenSep, Clz.fgB0)
+    Clz.print(sep*lenSep, Clz.fgN0)
 def printHeaderTitle(title):
     """"""
-    Clz.print(' -- %s -- ' % title, Clz.BG4+Clz.fgB7, False, True)
+    Clz.print(' == '+title+' == ', Clz.BG4+Clz.fgB7, False, True)
 
 def printHeaderPart(label,value):
     """"""
@@ -169,6 +169,7 @@ data command Examples:
         gpData.add_option('-r', '--remove'        , help='remove FILE with specified ID from server'                   , action='store',       metavar='ID         ')
         gpData.add_option('-c', '--category'      , help='set specified CATEGORY (crit. for opt. -l,-a or -s)'         , action='store',       metavar='CATG       '  , default='')
         gpData.add_option('-u', '--user'          , help='set specified USER (crit. for opt. -l,-a or -s)'             , action='store',       metavar='OWNER      '  , default='all')
+        gpData.add_option('-o', '--order'         , help='set colon ORDER (crit. for opt. -l and -s)'                  , action='store',       metavar='ORDER      '  , default='ID')
         #gpData.add_option('-o', '--output-dir'    , help='set specified OUTPUT DIR (for opt. -l,-a,-d or -g)'          , action='store',       metavar='DIR        ')
         parser.add_option_group(gpData)                                                                             
 
@@ -186,9 +187,63 @@ data command Examples:
         parser.add_option_group(gpConf)
 
         (o, a) = parser.parse_args()
-        
-        
 
+#   USAGE :
+#
+#       imprastorage add {filePath} [{name} -c {category} -u {owner}]
+#       imprastorage list [-o {colon}, -c {category} -u {owner}]
+#       imprastorage get {id|ids} | -n {name}
+#       imprastorage remove {id} | -n {name}
+#       imprastorage search {pattern} [-c {category} -u {owner} -o {colon}]
+#       imprastorage conf [-A profileName] -L | -V |
+#                          -S [-K, -H {host}, -U {user}, -X {password}, -P {port}, -B {box}, -N {name}]
+#
+#   EXEMPLES :
+#
+#       command add :
+#               imprastorage add /home/Share/2009-mountains.avi 
+#               imprastorage add /home/Share/2009-mountains.avi 'summer 2009 - in mountains'
+#               imprastorage add /home/Share/2009-mountains.avi -u family
+#               imprastorage add /home/Share/2009-mountains.avi -c videos/perso/2009
+#               imprastorage add /home/Share/2009-mountains.avi 'summer 2009 - in mountains' -c videos/perso/2009 -u family
+#
+#       command list :
+#               imprastorage list 
+#               imprastorage list -o LABEL
+#               imprastorage list -c videos/perso
+#               imprastorage list -u family
+#               imprastorage list -o SIZE -c videos/perso -u family
+#
+#       command get :
+#               imprastorage get 15
+#               imprastorage get 15-19
+#               imprastorage get 22,29,30
+#               imprastorage get 22,29,30-35,48
+#               imprastorage get -n 'summer 2009 - in mountains'
+#
+#       command remove :
+#               imprastorage remove 15
+#               imprastorage remove -n 'summer 2009 - in mountains'
+#       
+#       command search :
+#               imprastorage search 'mountains'
+#               imprastorage search 'mountains' -c videos/perso
+#               imprastorage search 'mountains' -u family
+#               imprastorage search 'mountains' -o LABEL
+#               imprastorage search 'mountains' -c videos/perso -u family -o LABEL
+#               imprastorage search '^mountains'
+#               imprastorage search 'mountains$'
+#
+#       command conf :
+#               imprastorage conf -L
+#               imprastorage conf -LA bobgmail
+#               imprastorage conf -V
+#               imprastorage conf -VA bobgmail
+#               imprastorage conf -S -K 
+#               imprastorage conf -SA bobgmail -K
+#               imprastorage conf -SA bobgmail -K -H imap.gmail.com -U bob22 -X mypassword -N bob
+#
+        print()
         if not a:
             parser.print_help()
             print()
@@ -203,8 +258,6 @@ data command Examples:
                 if o.active_profile==None: 
                     if self.ini.has('profile') : o.active_profile = self.ini.get('profile')
                     else : o.active_profile = 'default'
-                
-                print(self.ini)
                 
                 if o.load_conf   : self.load_profile(o)
 
@@ -231,7 +284,7 @@ data command Examples:
                         if self.check_profile(o.active_profile):
                             self.ini.set('profile', o.active_profile)
                         self.ini.write()
-                        print(self.ini.toString(o.active_profile))
+                        self.ini.print(o.active_profile)
 
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # ~~ data CMD ~~
@@ -249,20 +302,26 @@ data command Examples:
                         try:
                             impst = core.ImpraStorage(conf)
                         except crypt.BadKeyException as e :
-                            print('Error : ')
-                            print(e)
-                            print("""
-it seems that your current profile %s has a wrong key to decrypt index on server.
-you can remove index but all presents files on the box %s will be unrecoverable
-""" % (o.active_profile, conf.get('box','imap')))
-                            remIndex = input('remove index ? (yes/no)')
+                            print()
+                            Clz.print(' it seems that your current profile `'                    , Clz.fgB1, False)
+                            Clz.print(o.active_profile                                           , Clz.fgB3, False)
+                            Clz.print('` has a wrong key to decrypt index on server.'            , Clz.fgB1)
+                            Clz.print(' you can remove index but all presents files on the box `', Clz.fgB1, False)
+                            Clz.print(conf.get('box','imap')                                     , Clz.fgB3, False)
+                            Clz.print('` will be unrecoverable\n'                                , Clz.fgB1, True, False)
+
+                            remIndex = input(' remove index ? (yes/no) ')
                             if remIndex.lower()=='yes':
+                                Clz.print(' ',Clz.OFF)
                                 impst = core.ImpraStorage(conf, True)
+                                
                             else : 
-                                print('bye')
+                                print()
+                                print(' bye')
+                                print()
                                 sys.exit(1)                        
                     
-                        if o.list :
+                        if o.list :                            
                             uid     = conf.get('uid' ,'index')
                             date    = conf.get('date','index')
                             account = conf.get('user','imap')
@@ -278,18 +337,14 @@ you can remove index but all presents files on the box %s will be unrecoverable
                                 printHeaderPart('box',impst.rootBox)
                                 Clz.print(date, Clz.fgB7, True, True)
                                 printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
-                                impst.index.print()
+                                impst.index.print(o.order)
 
-                            status, resp = impst.ih.srv.search(None, '(SUBJECT "%s")' % '584d15abeb71fbd92fa5861970088b32ebb1d2d6650cec6115a28b64877d70f2')
-                            ids = [m for m in resp[0].split()]
-                            for mid in ids :
-                                status, resp = impst.ih.srv.fetch(mid,'(UID RFC822.SIZE)')                                
-                                print(mid,status,resp)
-                            
                         elif o.add :
                             done = impst.addFile(o.add[0],o.add[1],o.user,o.category)
                             if done :
-                                print('OK')
+                                print('\n ',end='')
+                                Clz.print(' == OK == ', Clz.bg2+Clz.fgb7)
+                                print()
 
                         elif o.get :
                             ids = []
@@ -302,31 +357,50 @@ you can remove index but all presents files on the box %s will be unrecoverable
                                 if key !=None : 
                                     done = impst.getFile(key)
                                     if done :
-                                        print('OK')
-                                else: print('-- `%s` is not a valid id --' % sid)
+                                        print('\n ',end='')
+                                        Clz.print(' == OK == ', Clz.bg2+Clz.fgb7)
+                                        print()
+                                else: 
+                                    print('\n ',end='')
+                                    Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
+                                    Clz.print(str(sid)                 , Clz.bg1+Clz.fgB3, False)
+                                    Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
+                                    print()
 
                         elif o.search :
                             matchIds = impst.index.getByPattern(o.search)
                             if matchIds is not None: 
-                                headstr = '-'*120+'\n -- SEARCH: `'+o.search+'` -- found '+str(len(matchIds))+' results --\n'+'-'*120
-                                impst.index.print(headstr,matchIds)
+                                printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+                                printHeaderTitle('SEARCH')
+                                Clz.print(' `'+o.search+'`' , Clz.fgB7, False)
+                                Clz.print(' -- found '      , Clz.fgB3, False)
+                                Clz.print(str(len(matchIds)), Clz.fgB1, False)
+                                Clz.print(' results --'     , Clz.fgB3)
+                                printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+                                impst.index.print(o.order,matchIds)
                             else:
-                                print(' -- no match found for pattern `%s` --' % o.search)
+                                print('\n ',end='')
+                                Clz.print(' == no match found for pattern `', Clz.bg3+Clz.fgB4, False)
+                                Clz.print(o.search                          , Clz.bg3+Clz.fgB1, False)
+                                Clz.print('` == '                           , Clz.bg3+Clz.fgB4)
+                                print()
                         elif o.remove :
-                            print(o.remove)
-
-                    #~ filePath = '/media/Data/dev/big_toph3.jpg' 
-                    #~ lab = 'Meuf\'bonne aussi4' 
-                    #~ print('\n -- ADD FILE -- ')
-                    #~ impst.addFile(filePath,lab,conf.get('name','infos'),'images')                    
-                    
-                #~ else : 
-                    #~ self.load_profile(o)
-                    #~ print('data cmd')    
-                    #~ print(o)
+                            key = impst.index.getById(o.remove)
+                            if key !=None : 
+                                done = impst.removeFile(key)
+                                if done :
+                                    print('\n ',end='')
+                                    Clz.print(' == OK == ', Clz.bg2+Clz.fgb7)
+                                    print()
+                            else: 
+                                print('\n ',end='')
+                                Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
+                                Clz.print(str(o.remove)            , Clz.bg1+Clz.fgB3, False)
+                                Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
+                                print()
 
             else : parser.print_help()
-
+        print()
 
 
     def check_profile(self,profile):

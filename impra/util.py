@@ -35,7 +35,7 @@ from errno      import EEXIST
 from hashlib    import sha256
 from math       import log, floor, ceil
 from os         import urandom, popen, sep, makedirs, system
-from os.path    import dirname, realpath, abspath, join
+from os.path    import dirname, realpath, abspath, join, getsize
 from random     import choice
 from re         import split as regsplit, search as regsearch, finditer as regfinditer
 from subprocess import PIPE, Popen
@@ -231,7 +231,7 @@ class RuTime:
         ep = [m.start() for m in regfinditer('\)', data)]
         if len(sp) > 0 :
             Clz.print(data[:sp[0]+1], Clz.fgb3, False)
-            Clz.print(data[sp[0]+1:ep[0]], Clz.fgn2, False)
+            Clz.print(data[sp[0]+1:ep[0]], Clz.fgn7, False)
             Clz.print(data[ep[0]:], Clz.fgb3, False)
         else:
             Clz.print(data, Clz.fgb3, False, True)
@@ -240,7 +240,7 @@ class RuTime:
         global Clz
         Clz.print(' <== ', Clz.fgb1, False)
         self._paramize(self.label)
-        Clz.print('%.5f' % (self.ec-self.sc), Clz.fgn7)
+        Clz.print('%.5f' % (self.ec-self.sc), Clz.fgN4)
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -316,6 +316,26 @@ class IniFile:
                         content += k+' = '+self.dic[s][k]+'\n'
                     else : main += k+' = '+self.dic[s][k]+'\n'
         return main + content
+    
+    def print(self,section='*'):
+        """"""
+        a = ''
+        for s in self.dic:
+            if section=='*' or section+'.'==s[:len(section)+1]:
+                if s!='main':
+                    #~ if section=='*': content += '\n['+s+']\n'
+                    #~ else : content += '\n['+s[len(section)+1:]+']\n'
+                    print()
+                    Clz.print('['+s+']', Clz.fgB3)
+                for k in sorted(self.dic[s]):
+                    k = k.rstrip(' ')
+                    if s!='main' :
+                        a = ''
+                        if len(self.dic[s][k]) > 50: a = '...'
+                        Clz.print(k.ljust(10,' ')+' = '       , Clz.fgn7, False)
+                        if Clz.isUnix or k is not 'key' :
+                            Clz.print(self.dic[s][k][:50]+a, Clz.fgN2)
+                        else: Clz.print('key is masked', Clz.fgb1)
     
     def read(self):
         """"""
@@ -403,6 +423,8 @@ class Coloriz:
             pc = PColor()
             pc.print('%smon label%s:%sma value%s' % (pc.BG4+pc.fgN7, pc.OFF+pc.fgn1, pc.fgb4, pc.OFF))
         """
+        global COLOR_MODE
+        self.active = COLOR_MODE
         if not self.isUnix:
             j = 0
             for i in (0,4,2,6,1,5,3,7):
@@ -444,14 +466,17 @@ class Coloriz:
         """"""
         if not endLF : ev = ''
         else: ev = self._LF
-        tokens = [c.lstrip(self._MARKER[0]).rstrip(self._SEP) for c in colors.split(self._MARKER) if c is not '']
-        if self.isUnix :
-            if endClz : data += self._uOFF
-            print(eval('self._u'+'+self._u'.join(tokens))+data,end=ev)
-        else :
-            self.setColor(eval('self._w'+'|self._w'.join(tokens)))
+        if self.active : 
+            tokens = [c.lstrip(self._MARKER[0]).rstrip(self._SEP) for c in colors.split(self._MARKER) if c is not '']
+            if self.isUnix :
+                if endClz : data += self._uOFF
+                print(eval('self._u'+'+self._u'.join(tokens))+data,end=ev)
+            else :
+                self.setColor(eval('self._w'+'|self._w'.join(tokens)))
+                print(data,end=ev)
+                stdout.flush()
+                if endClz : self.setColor(self._wOFF)
+        else: 
             print(data,end=ev)
-            stdout.flush()
-            if endClz : self.setColor(self._wOFF)
 
 Clz = Coloriz()

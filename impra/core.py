@@ -92,7 +92,12 @@ class FSplitter :
         m = mmap(f.fileno(), 0)
         p = 0
         psize = ceil(getsize(fromPath)/hlst['head'][1])
-        print(formatBytes(getsize(fromPath))+' on '+str(len(hlst['data']))+' parts (~'+formatBytes(psize)+')')
+        Clz.print(' '+formatBytes(getsize(fromPath)), Clz.fgB2, False)
+        Clz.print(' on '                        , Clz.fgn7, False)
+        Clz.print(str(len(hlst['data']))        , Clz.fgB1, False)
+        Clz.print(' parts (~'                   , Clz.fgn7, False)
+        Clz.print(formatBytes(psize)            , Clz.fgB2, False)
+        Clz.print(')'                           , Clz.fgn7)
         while m.tell() < m.size():
             self._splitPart(m,p,psize,hlst['data'][p])
             p += 1
@@ -124,8 +129,11 @@ class FSplitter :
         else: dirPath = self.DIR_DEPLOY
         
         filePath = dirPath+fileName
-        if file_exists(filePath+ext):
-            print('\n-- `%s` already exist, deploying file as :\n-- `%s`\n' % (filePath+ext,filePath+'-'+str(uid)+ext))
+        if file_exists(filePath+ext):            
+            Clz.print('\n name already exist, deploying file as :' , Clz.fgB1)
+            Clz.print(' '+basename(filePath)                       , Clz.fgB2, False)
+            Clz.print('-'+str(uid)                                 , Clz.fgB1, False)
+            Clz.print(ext                                          , Clz.fgB2)
             filePath += '-'+str(uid)
         filePath += ext
             
@@ -137,7 +145,7 @@ class FSplitter :
             p += 1
         fp.close()
         rt.stop()
-        return dirPath+fileName+ext
+        return filePath
 
     def _mergePart(self,fp,part,phlst,depDir):
         """"""
@@ -182,7 +190,6 @@ class ImpraConf:
             self.set('types', 'music,films,doc,images,archives,games','catg')
         if save : 
             self.ini.write()
-            #print(self.ini.toString())
     
     def get(self, key, section='main', profile=None):
         """"""
@@ -228,8 +235,6 @@ class ImpraIndex:
     SEP_KEY_INTERN = '@'
     """Separator used for internal key such categories"""
     
-    MD5            = 7
-    """"""
     HASH           = 0
     """"""
     LABEL          = 1
@@ -246,10 +251,14 @@ class ImpraIndex:
     """"""
     BFLAG          = 7
     """"""
-    
+    SIZE           = 8
+    """"""    
     FILE_BINARY    = 'b'
+    """"""
     FILE_CRYPT     = 'c'
-    
+    """"""
+    COLS           = ('HASH','LABEL','PART','TYPE','OWNER','CATEGORY','ID','BLFAG','SIZE')
+    """"""
     
     def __init__(self, key, mark, encdata='', dicCategory={}, id=0):
         """Initialize the index with rsa and encoded data
@@ -272,11 +281,11 @@ class ImpraIndex:
             if not self.SEP_KEY_INTERN+k in self.dic:
                 self.dic[self.SEP_KEY_INTERN+k] = dicCategory[k]
 
-    def add(self,key, label, count, ext='', usr='', cat='', md5='', bFlag='b'):
+    def add(self,key, label, count, ext='', usr='', cat='', md5='', bFlag='b', size=''):
         """Add an entry to the index
         """
         if self.get(md5) == None : 
-            self.dic[md5] = (key,label,count,ext,usr,cat, self.id, bFlag)
+            self.dic[md5] = (key,label,count,ext,usr,cat,self.id,bFlag,size)
             self.id +=1
         else : 
             print(label+' already exist')
@@ -390,34 +399,37 @@ class ImpraIndex:
             raise BadKeyException(e)
         return data
 
-    def print(self,header='', matchIds=None):
+    def print(self,order='ID', matchIds=None):
         """Print index content as formated bloc"""
         #clear()
-        if header is not '':print(header)
         from impra.cli import printLineSep, LINE_SEP_LEN, LINE_SEP_CHAR
-        #printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+        orderIndex = self.COLS.index(order)
+        if orderIndex is None : orderIndex = self.COLS.index('ID')
+        
         Clz.print(' ID'+' '*1, Clz.BG4+Clz.fgB7, False, False)
-        print('HASH'  +' '*15, end='')
-        print('LABEL' +' '*38, end='')
+        print('HASH'  +' '*6 , end='')
+        print('LABEL' +' '*35, end='')
+        print('SIZE'  +' '*5 , end='')
         print('PART'  +' '*2 , end='')
         print('TYPE'  +' '*2 , end='')
-        print('OWNER' +' '*12, end='')
-        Clz.print('CATEGORY'+' '*17, Clz.BG4+Clz.fgB7)        
+        print('OWNER' +' '*10, end='')
+        Clz.print('CATEGORY'+' '*22, Clz.BG4+Clz.fgB7)
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
-        data = ''
-        r = [k for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)]
-        for k in r :
-            v = self.dic.get(k)
-            k = k.lstrip('\n\r')
-            if not k[0]==self.SEP_KEY_INTERN and len(k)>1:
-                if matchIds==None or v[self.UID] in matchIds:
-                    Clz.print(str(v[self.UID]).rjust(1+ceil(len(str(v[self.UID]))/10),' ') +' '*2, Clz.fgB1, False)
-                    Clz.print(str(k)[0:12]+'...  ' +' '*2, Clz.fgn2, False)
-                    Clz.print(str(v[self.LABEL]).ljust(42,' ') +' '*2, Clz.fgB7, False)
-                    Clz.print(str(v[self.PARTS]).rjust(2 ,'0') +' '*2, Clz.fgB5, False)
-                    Clz.print(str(v[self.EXT]).ljust(5,' ') +' '*2, Clz.fgB4, False)
-                    Clz.print(self.getUser(str(v[self.OWNER])).ljust(15,' ') +' '*2, Clz.fgB7, False)
-                    Clz.print(str(v[self.CATG]) +' '*2, Clz.fgB4)
+        
+        d = sorted([(self.dic.get(k),k) for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)], key=lambda lst:lst[0][orderIndex])
+        a = ''
+        for v,k in d :
+            if matchIds==None or v[self.UID] in matchIds:
+                a = ''
+                Clz.print(str(v[self.UID]).rjust(1+ceil(len(str(v[self.UID]))/10),' ')+' ', Clz.bg1+Clz.fgB7, False)
+                Clz.print(' '+str(k)[0:6]+'... '                          ,Clz.fgN2, False)
+                if len(v[self.LABEL])>36 : a = '...'
+                Clz.print(str(v[self.LABEL][:36]+a).ljust(40,' ')         ,Clz.fgN7, False)
+                Clz.print(formatBytes(int(v[self.SIZE]))[:8].ljust(10,' '),Clz.fgN5, False)
+                Clz.print(str(v[self.PARTS]).rjust(2 ,'0') +' '*2         ,Clz.fgN1, False)
+                Clz.print(str(v[self.EXT][:5]).ljust(7,' ')               ,Clz.fgn3, False)
+                Clz.print(self.getUser(str(v[self.OWNER])).ljust(15,' ')  ,Clz.fgn7, False)
+                Clz.print(str(v[self.CATG]) +' '*2                        ,Clz.fgN3)
 
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
 
@@ -497,9 +509,11 @@ class ImpraStorage:
             if uid != None and file_exists(self.pathInd): # int(self.idx) == int(uid) 
                 self.idx = uid
                 encData = get_file_content(self.pathInd)
+                Clz.print(' get index from cache', Clz.fgn7)
             else: refresh = True
         else: refresh = True
         if refresh :
+            Clz.print(' refreshing index', Clz.fgn7)
             self._getIdIndex()
             if self.idx :
                 encData = self._getCryptIndex()
@@ -555,6 +569,12 @@ class ImpraStorage:
         with open(path, mode='w') as o:
             o.write(data)            
     
+    def checkSendIds(self,sendIds,subject):
+        """"""
+        lloc = [bytes(str(data[0]),'utf-8') for mid, data in enumerate(sendIds)]
+        lsrv = self.ih.searchBySubject(subject,True)
+        return  [ i for i in set(lloc).difference(set(lsrv))]
+    
     def addFile(self, path, label, usr='all', catg=''):
         """"""
         done = False
@@ -563,73 +583,136 @@ class ImpraStorage:
 
         _, ext = splitext(path)
         
-        try:
-            md5 = hash_md5_file(path)
-            print('--\nmd5sum `%s` %s' % (path,md5))                
-            if not self.index.get(md5) :
-                
-                if catg=='' : catg = self.index.getAutoCatg(ext)
-                
-                bFlag = ImpraIndex.FILE_BINARY
-                if not is_binary(path): 
-                    bFlag = ImpraIndex.FILE_CRYPT
-                    path  = self.encryptTextFile(path)
+        try:            
+            size = getsize(path)
+            if size > 0 :                
+                md5  = hash_md5_file(path)
+                print()
+                Clz.print(' file   : ' , Clz.fgn7, False)
+                Clz.print(path        , Clz.fgN1)
+                Clz.print(' md5sum : ' , Clz.fgn7, False)                
+                Clz.print(md5         , Clz.fgN2)
+                print()
+                if not self.index.get(md5) :
                     
-                hlst = self.fsplit.addFile(path,md5)
-                if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : 
-                    print(hlst['head'])
-                    for v in hlst['data']:
-                        print(v)
-                
-                ownerHash = self.mb.getHashName(usr)
-                self.index.addUser(usr,ownerHash)
+                    if catg=='' : catg = self.index.getAutoCatg(ext)
+                    
+                    bFlag = ImpraIndex.FILE_BINARY
+                    if not is_binary(path): 
+                        bFlag = ImpraIndex.FILE_CRYPT
+                        path  = self.encryptTextFile(path)
+                        
+                    hlst = self.fsplit.addFile(path,md5)
+                    if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : 
+                        print(hlst['head'])
+                        for v in hlst['data']:
+                            print(v)
+                    
+                    ownerHash = self.mb.getHashName(usr)
+                    self.index.addUser(usr,ownerHash)
 
-                cancel  = False
-                sendIds = []
-                test    = True
-                for row in hlst['data'] :
-                    msg  = self.mb.build(self.conf.get('name','infos'),usr,hlst['head'][2],self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
-                    mid  = self.ih.send(msg.as_string(), self.rootBox)
-                    if mid is not None :
-                        print('part %s sent as msg %s' % (row[0],mid[1]))
-                        sendIds.append((mid[1],row))
-                        remove(self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
-                    else:
-                        print('\n-- error occured when sending part : %s\n-- retrying' % row[0])
+                    cancel  = False
+                    sendIds = []
+                    test    = True
+                    for row in hlst['data'] :
+                        msg  = self.mb.build(self.conf.get('name','infos'),usr,hlst['head'][2],self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
                         mid  = self.ih.send(msg.as_string(), self.rootBox)
                         if mid is not None :
-                            print('part %s sent as msg %s' % (row[0],mid[1]))
+                            print(' ',end='')
+                            Clz.print(' part '       , Clz.fgn7, False)
+                            Clz.print(str(row[0])    , Clz.fgB1, False)
+                            Clz.print(' sent as msg ', Clz.fgn7, False)
+                            Clz.print(str(mid[1])    , Clz.fgB1)                            
                             sendIds.append((mid[1],row))
-                            remove(self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
-                        else: 
-                            print('\n-- can\'t send part %s\n-- cancelling ' % row[0])
-                            cancel = True
-                            break
-                
-                if cancel :
+                        else:
+                            print('\n-- error occured when sending part : %s\n-- retrying' % row[0])
+                            mid  = self.ih.send(msg.as_string(), self.rootBox)
+                            if mid is not None :
+                                print('part %s sent as msg %s' % (row[0],mid[1]))
+                                sendIds.append((mid[1],row))
+                            else: 
+                                print('\n-- can\'t send part %s\n-- cancelling ' % row[0])
+                                cancel = True
+                                break
+                    print()
+                    if not cancel :
+                        self.index.add(hlst['head'][3],label,hlst['head'][1],ext,ownerHash,catg,md5,bFlag,size)
+                        done = self.saveIndex()
+                        self.conf.set('nid', str(self.index.id),'index')
+                        diff = self.checkSendIds(sendIds,hlst['head'][2])
+                        if len(diff) > 0 :
+                            Clz.print(' error when sending, missing parts :', Clz.fgB1)
+                            print(diff)
+                            for mid, row in sendIds :
+                                msg  = self.mb.build(self.conf.get('name','infos'),usr,hlst['head'][2],self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
+                                Clz.print(' resending part '      , Clz.fgn7, False)
+                                Clz.print(str(row[0])             , Clz.fgN2, False)
+                                mid  = self.ih.send(msg.as_string(), self.rootBox)
+                        else :
+                            print()
+                            #Clz.print(' index intall files checked\n', Clz.fgB2)
+                            
+
+                    # clean 
                     for mid, row in sendIds :
-                        self.ih.delete(mid, True)
+                        if cancel : self.ih.delete(mid, True)
                         if file_exists(self.fsplit.DIR_OUTBOX+row[1]+'.ipr') : remove(self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
                     self.clean()
-                        
+
                 else :
-                    self.index.add(hlst['head'][3],label,hlst['head'][1],ext,ownerHash,catg,md5,bFlag)
-                    done = self.saveIndex()
-                    self.conf.set('nid', str(self.index.id),'index')
+                    print(' ',end='')
+                    Clz.print(' == file already exist on server as '    , Clz.fgN7+Clz.bg1, False)
+                    Clz.print(self.index.dic[md5][ImpraIndex.LABEL]     , Clz.bg1+Clz.fgB3, False)
+                    Clz.print(' [id:'                                   , Clz.fgN7+Clz.bg1, False)
+                    Clz.print(str(self.index.dic[md5][ImpraIndex.UID])  , Clz.bg1+Clz.fgB3, False)
+                    Clz.print('] == '                                   , Clz.fgN7+Clz.bg1)
+                    print()
             else :
-                print('--\nfile already exist on server as `%s` [id:%i]\n' % (self.index.dic[md5][ImpraIndex.LABEL],self.index.dic[md5][ImpraIndex.UID]))
+                print(' ',end='')
+                Clz.print(' == files is empty or don\t exists == ' , Clz.bg1+Clz.fgN7)
+                print()
+                
         except Exception as e :
             print(e)
         rt.stop()
         return done
 
+    def removeFile(self,key):
+        """"""
+        from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, DEBUG_INFO
+        done = False
+        row  = self.index.get(key)
+        if row==None : 
+                print()
+                Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
+                Clz.print(str(key)                 , Clz.bg1+Clz.fgB3, False)
+                Clz.print('` not on the server == ', Clz.bg1+Clz.fgB7)
+                print()
+        else :
+            rt  = RuTime(eval(__CALLER__('"[%i] %s"' % (row[ImpraIndex.UID],row[ImpraIndex.LABEL]))),DEBUG_INFO)
+            ck    = ConfigKey(row[ImpraIndex.HASH])
+            hlst  = ck.getHashList(key,row[ImpraIndex.PARTS],True)
+            Clz.print(' waiting srv...', Clz.fgn7)
+            ids   = self.ih.searchBySubject(hlst['head'][2], True)
+            for mid in ids :
+                self.ih.delete(mid, True)
+            self.index.rem(key)
+            done = self.saveIndex()
+            rt.stop()
+        return done
+        
     def getFile(self,key):
         """"""
         from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, DEBUG_INFO
         done  = False
-        row   = self.index.get(key)        
+        row   = self.index.get(key)
         if row==None : 
-            print('--\n%s not on the server' % key)
+                print()
+                Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
+                Clz.print(str(key)                 , Clz.bg1+Clz.fgB3, False)
+                Clz.print('` not on the server == ', Clz.bg1+Clz.fgB7)
+                print()
+            
         else :
             rt  = RuTime(eval(__CALLER__('"[%i] %s"' % (row[ImpraIndex.UID],row[ImpraIndex.LABEL]))),DEBUG_INFO)
             ck    = ConfigKey(row[ImpraIndex.HASH])
@@ -648,11 +731,27 @@ class ImpraStorage:
                     path = self.fsplit.deployFile(hlst, row[ImpraIndex.LABEL],  row[ImpraIndex.EXT], row[ImpraIndex.UID], row[ImpraIndex.CATG])
                     if row[ImpraIndex.BFLAG] == ImpraIndex.FILE_CRYPT:
                         self.decryptTextFile(path)
+                    print()
+                    Clz.print(' deploying in ', Clz.fgn7, False)
+                    Clz.print(dirname(path), Clz.fgB2)
+                    print()
                     done = True
                 else :
-                    print('--\n`%s` is private' % row[ImpraIndex.LABEL])
+                    print()
+                    Clz.print(' == `'                    , Clz.bg3+Clz.fgB4, False)
+                    Clz.print(str(row[ImpraIndex.LABEL]) , Clz.bg3+Clz.fgB1, False)
+                    Clz.print('` is private == '         , Clz.bg3+Clz.fgB4)
+                    print()
             else :
-                print('--\n`%s` invalid count parts %i/%i' %(row[ImpraIndex.LABEL],len(ids),row[ImpraIndex.PARTS]))
+                print()
+                Clz.print(' == `'                         , Clz.bg3+Clz.fgB4, False)
+                Clz.print(row[ImpraIndex.LABEL]           , Clz.bg3+Clz.fgB1, False)
+                Clz.print('` invalid count parts '        , Clz.bg3+Clz.fgB4)
+                Clz.print(str(len(ids))                   , Clz.bg3+Clz.fgB1)                
+                Clz.print('/'                             , Clz.bg3+Clz.fgB4)
+                Clz.print(str(len(row[ImpraIndex.PARTS])) , Clz.bg3+Clz.fgB1)
+                Clz.print(' == '                          , Clz.bg3+Clz.fgB4)                
+                print()
 
             rt.stop()
         return done
