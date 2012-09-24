@@ -156,6 +156,7 @@ data command Examples:
 
         gpData      = OptionGroup(parser, '\n------------------------------------\ndata related Options (command data)')
         gpConf      = OptionGroup(parser, '\n------------------------------------\nconf related Options (command conf)')
+        
 
         # metavar='<ARG1> <ARG2>', nargs=2
         parser.add_option('-v', '--version'       , help='show program\'s version number and exit'                     , action='store_true' , default=False)
@@ -163,26 +164,27 @@ data command Examples:
         parser.add_option('-d', '--debug'         , help='set debug mode'                                              , action='store_true' , default=False)
 
         gpData.add_option('-l', '--list'          , help='list index on imap server'                                   , action='store_true' )
-        gpData.add_option('-a', '--add'           , help='add file FILE with specified LABEL on server'                , action='store',       metavar='FILE LABEL ', nargs=2)
-        gpData.add_option('-g', '--get'           , help='get file with specified ID from server'                      , action='store',       metavar='ID         ')
-        gpData.add_option('-s', '--search'        , help='search file with specified PATTERN'                          , action='store',       metavar='PATTERN    ')
-        gpData.add_option('-r', '--remove'        , help='remove FILE with specified ID from server'                   , action='store',       metavar='ID         ')
-        gpData.add_option('-c', '--category'      , help='set specified CATEGORY (crit. for opt. -l,-a or -s)'         , action='store',       metavar='CATG       '  , default='')
-        gpData.add_option('-u', '--user'          , help='set specified USER (crit. for opt. -l,-a or -s)'             , action='store',       metavar='OWNER      '  , default='all')
-        gpData.add_option('-o', '--order'         , help='set colon ORDER (crit. for opt. -l and -s)'                  , action='store',       metavar='ORDER      '  , default='ID')
+        gpData.add_option('-a', '--add'           , help='add file FILE with specified LABEL on server'                , action='store',       metavar='FILE LABEL   ', nargs=2)
+        gpData.add_option('-g', '--get'           , help='get file with specified ID from server'                      , action='store',       metavar='ID           ')
+        gpData.add_option('-s', '--search'        , help='search file with specified PATTERN'                          , action='store',       metavar='PATTERN      ')
+        gpData.add_option('-r', '--remove'        , help='remove FILE with specified ID from server'                   , action='store',       metavar='ID           ')
+        gpData.add_option('-c', '--category'      , help='set specified CATEGORY (crit. for opt. -l,-a or -s)'         , action='store',       metavar='CATG         '  , default='')
+        gpData.add_option('-u', '--user'          , help='set specified USER (crit. for opt. -l,-a or -s)'             , action='store',       metavar='OWNER        '  , default='all')
+        gpData.add_option('-o', '--order'         , help='set colon ORDER (crit. for opt. -l and -s)'                  , action='store',       metavar='ORDER        '  , default='ID')
+        gpData.add_option('-O', '--order-inv'     , help='set colon ORDER_INVERSE (crit. for opt. -l and -s)'          , action='store',       metavar='ORDER_INVERSE')
         #gpData.add_option('-o', '--output-dir'    , help='set specified OUTPUT DIR (for opt. -l,-a,-d or -g)'          , action='store',       metavar='DIR        ')
         parser.add_option_group(gpData)                                                                             
 
         gpConf.add_option('-L', '--list-conf'     , help='list configuration'                                          , action='store_true',  default=False)
         gpConf.add_option('-D', '--load-conf'     , help='load configuration'                                          , action='store_true',  default=False)
-        gpConf.add_option('-H', '--set-host'      , help='set imap host server'                                        , action='store',       metavar='HOST       ')
-        gpConf.add_option('-U', '--set-user'      , help='set imap user login'                                         , action='store',       metavar='USER       ')
-        gpConf.add_option('-X', '--set-pass'      , help='set imap user password'                                      , action='store',       metavar='PASS       ')
-        gpConf.add_option('-P', '--set-port'      , help='set imap port'                                               , action='store',       metavar='PORT       ')
-        gpConf.add_option('-N', '--set-name'      , help='set user name'                                               , action='store',       metavar='NAME       ')
-        gpConf.add_option('-B', '--set-boxn'      , help='set boxName on imap server (default:[%default])'             , action='store',       metavar='BOXNAME    ')
+        gpConf.add_option('-H', '--set-host'      , help='set imap host server'                                        , action='store',       metavar='HOST         ')
+        gpConf.add_option('-U', '--set-user'      , help='set imap user login'                                         , action='store',       metavar='USER         ')
+        gpConf.add_option('-X', '--set-pass'      , help='set imap user password'                                      , action='store',       metavar='PASS         ')
+        gpConf.add_option('-P', '--set-port'      , help='set imap port'                                               , action='store',       metavar='PORT         ')
+        gpConf.add_option('-N', '--set-name'      , help='set user name'                                               , action='store',       metavar='NAME         ')
+        gpConf.add_option('-B', '--set-boxn'      , help='set boxName on imap server (default:[%default])'             , action='store',       metavar='BOXNAME      ')
         gpConf.add_option('-K', '--gen-keys'      , help='generate new key'                                            , action='store_true',  default=False)
-        gpConf.add_option('-A', '--active-profile', help='set active profile'                                          , action='store',       metavar='PROFILE    ')
+        gpConf.add_option('-A', '--active-profile', help='set active profile'                                          , action='store',       metavar='PROFILE      ')
 
         parser.add_option_group(gpConf)
 
@@ -337,7 +339,11 @@ data command Examples:
                                 printHeaderPart('box',impst.rootBox)
                                 Clz.print(date, Clz.fgB7, True, True)
                                 printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
-                                impst.index.print(o.order)
+
+                                order = o.order
+                                if o.order_inv is not None:
+                                    order = '-'+o.order_inv
+                                impst.index.print(order)
 
                         elif o.add :
                             done = impst.addFile(o.add[0],o.add[1],o.user,o.category)
@@ -368,15 +374,28 @@ data command Examples:
                                     print()
 
                         elif o.search :
+                            uid     = conf.get('uid' ,'index')
+                            date    = conf.get('date','index')
+                            account = conf.get('user','imap')
                             matchIds = impst.index.getByPattern(o.search)
-                            if matchIds is not None: 
+                            core.clear()
+                            if matchIds is not None:
                                 printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
-                                printHeaderTitle('SEARCH')
+                                printHeaderTitle(APP_TITLE)
+                                printHeaderPart('account',account)
+                                printHeaderPart('index',uid)
+                                printHeaderPart('box',impst.rootBox)
+                                Clz.print(date, Clz.fgB7, True, True)
+                                printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+                                Clz.print(' searching --'   , Clz.fgB3, False)
                                 Clz.print(' `'+o.search+'`' , Clz.fgB7, False)
                                 Clz.print(' -- found '      , Clz.fgB3, False)
                                 Clz.print(str(len(matchIds)), Clz.fgB1, False)
                                 Clz.print(' results --'     , Clz.fgB3)
                                 printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+                                order = o.order
+                                if o.order_inv is not None:
+                                    order = '-'+o.order_inv
                                 impst.index.print(o.order,matchIds)
                             else:
                                 print('\n ',end='')

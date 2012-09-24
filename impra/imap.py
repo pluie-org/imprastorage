@@ -324,7 +324,7 @@ class ImapHelper:
         self.srv.select(self.rootBox)  
         rt.stop()
         
-    def delete(self, mid, byUid=False):
+    def delete(self, mid, byUid=False, expunge=True):
         """"""
         rt = RuTime(eval(__CALLER__('%i' % int(mid))))
         status = None
@@ -336,10 +336,11 @@ class ImapHelper:
             Clz.print(' flag msg ' , Clz.fgn7, False)
             Clz.print(str(mid)     , Clz.fgB1, False)
             Clz.print(' as deleted', Clz.fgn7)
-
-            Clz.print('\n expunge, waiting server...\n', Clz.fgB1)
-            self.srv.expunge()
-            sleep(2)
+            
+            if expunge :
+                Clz.print('\n expunge, waiting server...\n', Clz.fgB1)
+                self.srv.expunge()
+                sleep(2)
             
         rt.stop()
         return status == self.OK

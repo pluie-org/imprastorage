@@ -135,6 +135,9 @@ class FSplitter :
             Clz.print('-'+str(uid)                                 , Clz.fgB1, False)
             Clz.print(ext                                          , Clz.fgB2)
             filePath += '-'+str(uid)
+        else :
+            Clz.print('\n deploying file as :' , Clz.fgn7)
+            Clz.print(' '+basename(filePath)+ext                   , Clz.fgB2, False)
         filePath += ext
             
         fp = open(filePath, 'wb+')
@@ -403,6 +406,8 @@ class ImpraIndex:
         """Print index content as formated bloc"""
         #clear()
         from impra.cli import printLineSep, LINE_SEP_LEN, LINE_SEP_CHAR
+        inv    = order.startswith('-')
+        if inv : order = order[1:]
         orderIndex = self.COLS.index(order)
         if orderIndex is None : orderIndex = self.COLS.index('ID')
         
@@ -416,7 +421,7 @@ class ImpraIndex:
         Clz.print('CATEGORY'+' '*22, Clz.BG4+Clz.fgB7)
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
         
-        d = sorted([(self.dic.get(k),k) for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)], key=lambda lst:lst[0][orderIndex])
+        d = sorted([(self.dic.get(k),k) for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)], reverse=inv, key=lambda lst:lst[0][orderIndex])
         a = ''
         for v,k in d :
             if matchIds==None or v[self.UID] in matchIds:
@@ -541,7 +546,11 @@ class ImpraStorage:
         rt = RuTime(eval(__CALLER__()),DEBUG_INFO)
         if self.idx != None :
             self.ih.delete(self.idx, True)
-        for i in self.delids : self.ih.delete(i, True)
+        if len(self.delids) > 0 :
+            for i in self.delids : self.ih.delete(i, True, False)
+            Clz.print('\n expunge, waiting server...\n', Clz.fgB1)
+            self.srv.expunge()
+            sleep(2)
         encData  = self.index.encrypt() 
         msgIndex = self.mb.buildIndex(encData)        
         if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : print(msgIndex.as_string())
@@ -692,10 +701,13 @@ class ImpraStorage:
             rt  = RuTime(eval(__CALLER__('"[%i] %s"' % (row[ImpraIndex.UID],row[ImpraIndex.LABEL]))),DEBUG_INFO)
             ck    = ConfigKey(row[ImpraIndex.HASH])
             hlst  = ck.getHashList(key,row[ImpraIndex.PARTS],True)
-            Clz.print(' waiting srv...', Clz.fgn7)
+            Clz.print(' get file list from server', Clz.fgn7)
             ids   = self.ih.searchBySubject(hlst['head'][2], True)
             for mid in ids :
-                self.ih.delete(mid, True)
+                self.ih.delete(mid, True, False)
+            Clz.print('\n expunge, waiting pls...\n', Clz.fgB1)
+            self.ih.srv.expunge()
+            sleep(2)
             self.index.rem(key)
             done = self.saveIndex()
             rt.stop()
@@ -732,7 +744,7 @@ class ImpraStorage:
                     if row[ImpraIndex.BFLAG] == ImpraIndex.FILE_CRYPT:
                         self.decryptTextFile(path)
                     print()
-                    Clz.print(' deploying in ', Clz.fgn7, False)
+                    Clz.print(' deploying in ', Clz.fgn7)
                     Clz.print(dirname(path), Clz.fgB2)
                     print()
                     done = True
