@@ -24,14 +24,17 @@ if 'bdist_msi' in sys.argv:
     exe = Executable(
             script="imprastorage.py",
             base=None,
-            targetName="ImpraStorage.exe"
+            targetName="ImpraStorage.exe",
+            targetDir="lib",
+            shortcutName="ImpraStorage",
         )
     setup(
             name="ImpraStorage.exe",
-            version="0.5",
-            author="Me",
-            description="Copyright 2012",
+            version="0.6",
+            author="a-Sansara",
+            description="ImpraStorage provided a  private imap access to store large files. License GNU GPLv3 Copyright 2012 pluie.org",
             executables=[exe],
+            include-files=('./launcher.bat','./launcher.bat')
             scripts=[
                 'install.py'
                 ]
@@ -40,6 +43,6 @@ else :
 
 	setup(  name = "ImpraStorage",
 	        version = "0.5",
-	        description = "ImpraStorage an imap private access storage",
+	        description = "mpraStorage provided a  private imap access to store large files",
 	        options = {"build_exe": build_exe_options},
 	        executables = [Executable("imprastorage.py", base=base)])

@@ -3,7 +3,7 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #                                                                               #
 #   software  : ImpraStorage <http://imprastorage.sourceforge.net/>             #
-#   version   : 0.4                                                             #
+#   version   : 0.6                                                             #
 #   date      : 2012                                                            #
 #   licence   : GPLv3.0   <http://www.gnu.org/licenses/>                        #
 #   author    : a-Sansara <http://www.a-sansara.net/>                           #
@@ -187,7 +187,7 @@ def __CALLER__(args=''):
     """
     global DEBUG_LEVEL, DEBUG, DEBUG_WARN
     val = "self.__class__.__name__+'.%s' % stack()[1][3]+'("+quote_escape(args)+") "
-    if DEBUG and DEBUG_LEVEL<=DEBUG_WARN : val += "l:'+str(stack()[1][2])"
+    if DEBUG and DEBUG_LEVEL<=DEBUG_WARN : val += "l:'+str(stack()[1][2]) "
     else: val += "'"
     return val
 
@@ -300,6 +300,15 @@ class IniFile:
         with open(path, mode='w', encoding='utf-8') as o:
             o.write(content)
 
+    def getSections(self):
+        """"""
+        l = {}
+        for s in self.dic:
+            section = s.split('.')
+            if len(section)> 1 and not section[0] in l :
+                l[section[0]] = 1
+        return [k for i,k in enumerate(l)]
+
     def toString(self,section='*'):
         """"""
         content = ''
@@ -317,7 +326,7 @@ class IniFile:
                     else : main += k+' = '+self.dic[s][k]+'\n'
         return main + content
     
-    def print(self,section='*'):
+    def print(self,section='*', withoutSectionName=False):
         """"""
         a = ''
         for s in self.dic:
@@ -326,7 +335,9 @@ class IniFile:
                     #~ if section=='*': content += '\n['+s+']\n'
                     #~ else : content += '\n['+s[len(section)+1:]+']\n'
                     print()
-                    Clz.print('['+s+']', Clz.fgB3)
+                    if not withoutSectionName : 
+                        Clz.print('['+s+']', Clz.fgB3)
+                    else: Clz.print('['+s.split('.')[1]+']', Clz.fgB3)
                 for k in sorted(self.dic[s]):
                     k = k.rstrip(' ')
                     if s!='main' :
@@ -377,6 +388,10 @@ class StrIterator:
             raise StopIteration 
         self.i += 1
         return self.d[self.i-1]
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~ class Coloriz ~~
 
 class Coloriz:
 

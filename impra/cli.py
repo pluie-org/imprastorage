@@ -3,7 +3,7 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #                                                                               #
 #   software  : ImpraStorage <http://imprastorage.sourceforge.net/>             #
-#   version   : 0.4                                                             #
+#   version   : 0.6                                                             #
 #   date      : 2012                                                            #
 #   licence   : GPLv3.0   <http://www.gnu.org/licenses/>                        #
 #   author    : a-Sansara <http://www.a-sansara.net/>                           #
@@ -41,7 +41,7 @@ LINE_SEP_LEN  = 120
 LINE_SEP_CHAR = '―'
 if not Clz.isUnix : LINE_SEP_CHAR = '-'
 APP_TITLE     = 'ImpraStorage'
-APP_VERSION   = '0.5'
+APP_VERSION   = '0.6'
 APP_AUTHOR    = 'a-Sansara'
 APP_COPY      = 'pluie.org'
 APP_LICENSE   = 'GNU GPLv3'
@@ -118,13 +118,14 @@ class Cli:
         gpConf.add_option('-V', '--view'          , help='view configuration'                                          , action='store'                     )
         gpConf.add_option('-L', '--load'          , help='load configuration'                                          , action='store'                     )
         gpConf.add_option('-S', '--save'          , help='save configuration'                                          , action='store'                     )
+        gpConf.add_option('-C', '--check'         , help='check configuration'                                         , action='store'                     )
         gpConf.add_option('-H', '--set-host'      , help='set imap host server'                                        , action='store',       metavar='HOST         ')
         gpConf.add_option('-U', '--set-user'      , help='set imap user login'                                         , action='store',       metavar='USER         ')
         gpConf.add_option('-X', '--set-pass'      , help='set imap user password'                                      , action='store',       metavar='PASS         ')
         gpConf.add_option('-P', '--set-port'      , help='set imap port'                                               , action='store',       metavar='PORT         ')
         gpConf.add_option('-N', '--set-name'      , help='set user name'                                               , action='store',       metavar='NAME         ')
-        gpConf.add_option('-B', '--set-boxn'      , help='set boxName on imap server (default:[%default])'             , action='store',       metavar='BOXNAME      ')
-        gpConf.add_option('-K', '--gen-keys'      , help='generate new key'                                            , action='store_true',  default=False)
+        gpConf.add_option('-B', '--set-boxname'   , help='set boxName on imap server (default:[%default])'             , action='store',       metavar='BOXNAME      ')
+        gpConf.add_option('-K', '--gen-key'       , help='generate new key'                                            , action='store_true',  default=False)
 
         parser.add_option_group(gpConf)
 
@@ -154,7 +155,7 @@ class Cli:
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # ~~ conf CMD ~~
             if a[0] == 'conf' :
-                
+                self.print_header()
                 if o.load is not None or o.view is not None or o.save is not None :
                     
                     if o.view is not None :
@@ -170,22 +171,28 @@ class Cli:
                     
                     if o.load : self.load_profile(o)
 
-                    elif o.view : self.ini.print(o.active_profile)
+                    elif o.view :
+                        if o.view == 'all' :
+                            sections = self.ini.getSections()
+                            if len(sections) > 0:
+                                Clz.print(' '+','.join(sections), Clz.fgB3)
+                            else : Clz.print(' no profiles', Clz.fgB1)
+                        else: self.ini.print(o.view)
 
                     elif o.save :
-                        if not o.set_host and not o.set_user and not o.set_pass and not o.set_port and not o.set_boxn and not o.set_name and not o.gen_keys:
+                        if not o.set_host and not o.set_user and not o.set_pass and not o.set_port and not o.set_boxname and not o.set_name and not o.gen_key:
                             parser.error(' no options specified')
                         else :
                             if o.set_port and not util.represents_int(o.set_port):
                                 parser.error(' port must be a number')
                                 sys.exit(1)
-                            if o.set_boxn: self.ini.set('box' , o.set_boxn,o.active_profile+'.imap')
+                            if o.set_boxname: self.ini.set('box' , o.set_boxname,o.active_profile+'.imap')
                             if o.set_host: self.ini.set('host', o.set_host,o.active_profile+'.imap')
                             if o.set_user: self.ini.set('user', o.set_user,o.active_profile+'.imap')
                             if o.set_pass: self.ini.set('pass', o.set_pass,o.active_profile+'.imap')
                             if o.set_port: self.ini.set('port', o.set_port,o.active_profile+'.imap')                    
                             if o.set_name: self.ini.set('name', o.set_name,o.active_profile+'.infos')
-                            if o.gen_keys:
+                            if o.gen_key:
                                 kg = crypt.KeyGen(256)
                                 self.ini.set('key' ,kg.key,o.active_profile+'.keys')
                                 self.ini.set('mark',kg.mark,o.active_profile+'.keys')
@@ -194,6 +201,9 @@ class Cli:
                                 self.ini.set('profile', o.active_profile)
                             self.ini.write()
                             self.ini.print(o.active_profile)
+                elif o.check :
+                    self.check_profile(o.check, True)
+
                 else :
                     self.print_usage('')
 
@@ -205,9 +215,10 @@ class Cli:
                     
                     
                 if self.check_profile(o.active_profile):
+                    self.print_header()
                     conf  = core.ImpraConf(self.ini,o.active_profile)
                     impst = None
-                    try:
+                    try:                        
                         impst = core.ImpraStorage(conf)
                     except crypt.BadKeyException as e :
                         print()
@@ -273,6 +284,7 @@ class Cli:
 
                     elif a[0] == 'add':
                         if not len(a)>1 : self.error_cmd('`'+a[0]+' need at least one argument',parser)
+
                         vfile = a[1]
                         if util.file_exists(vfile) :
                             if not len(a)>2 :
@@ -291,8 +303,8 @@ class Cli:
                     elif a[0] == 'get':
                         
                         if not len(a)>1 : self.error_cmd('`'+a[0]+' need one argument',parser)
+
                         vid = a[1]
-                        
                         ids = []
                         for sid in vid.split(',') :
                             seq = sid.split('-')
@@ -373,7 +385,14 @@ class Cli:
 
                     elif a[0] == 'remove':
                         
-                        if not len(a)>1 : self.error_cmd('`'+a[0]+' need one argument',parser)
+                        if not len(a)>1 : self.error_cmd('`'+a[0]+' need one argument',parser)                        
+                        if not util.represents_int(a[1]):
+                            print('\n ',end='')
+                            Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
+                            Clz.print(a[1]                     , Clz.bg1+Clz.fgB3, False)
+                            Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
+                            print()
+                            sys.exit(1)
                         vid = a[1]
                         key = impst.index.getById(vid)
                         if key !=None : 
@@ -385,7 +404,7 @@ class Cli:
                         else: 
                             print('\n ',end='')
                             Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
-                            Clz.print(str(o.remove)            , Clz.bg1+Clz.fgB3, False)
+                            Clz.print(a[1]                     , Clz.bg1+Clz.fgB3, False)
                             Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
                             print()
 
@@ -398,9 +417,38 @@ class Cli:
         parser.error(msg)
         sys.exit(1)
 
-    def check_profile(self,profile):
+    def check_profile(self,profile, activeCheck=False):
         """"""
-        return self.ini.hasSection(profile+'.keys') and self.ini.has('host',profile+'.imap') and self.ini.has('user',profile+'.imap') and self.ini.has('pass',profile+'.imap') and self.ini.has('port',profile+'.imap')
+        c = self.ini.hasSection(profile+'.keys') and self.ini.has('host',profile+'.imap') and self.ini.has('user',profile+'.imap') and self.ini.has('pass',profile+'.imap') and self.ini.has('port',profile+'.imap')
+        if activeCheck :
+            if c :
+                Clz.print(' '+profile+' is ok', Clz.fgB2)
+                Clz.print(' testing...', Clz.fgB3)
+                conf  = core.ImpraConf(self.ini,profile)
+                impst = None
+                try:                        
+                    impst = core.ImpraStorage(conf)
+                    Clz.print(' done...', Clz.fgB2)
+                except crypt.BadKeyException as e :
+                    pass
+            else :
+                Clz.print(' '+profile+' incomplete', Clz.fgB1)
+                Clz.print(' need :', Clz.fgB1)
+                if not self.ini.hasSection(profile+'.keys'):
+                    Clz.print('    key (conf -S "'+profile+'" -K)', Clz.fgB1)
+                if not self.ini.has('host',profile+'.imap'):
+                    Clz.print('    imap host (conf -S "'+profile+'" -H hostName)', Clz.fgB1)
+                if not self.ini.has('user',profile+'.imap'):
+                    Clz.print('    imap user (conf -S "'+profile+'" -U userName)', Clz.fgB1)
+                if not self.ini.has('pass',profile+'.imap'):
+                    Clz.print('    imap password (conf -S "'+profile+'" -X password)', Clz.fgB1)
+                if not self.ini.has('port',profile+'.imap'):
+                    Clz.print('    imap port (conf -S "'+profile+'" -P port)', Clz.fgB1)
+            if not self.ini.has('name',profile+'.infos'):
+                if c :
+                    Clz.print(' think to add your userName :',Clz.bgB3)
+                Clz.print('    userName (conf -S "'+profile+'" -N yourName)', Clz.fgB3)    
+        return c 
 
     def print_header(self):
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
@@ -507,10 +555,7 @@ class Cli:
         Clz.print('profile', Clz.fgb1, False)
         Clz.print('} ', Clz.fgB1, False)
         Clz.print('[', Clz.fgB3, False)
-        Clz.print(' -K ', Clz.fgB3, False)
-        Clz.print('{', Clz.fgB1, False)
-        Clz.print('length', Clz.fgB1, False)
-        Clz.print('}', Clz.fgB1, False)
+        Clz.print(' -K', Clz.fgB3, False)
         Clz.print(', -H ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
         Clz.print('host', Clz.fgB1, False)
@@ -588,7 +633,7 @@ class Cli:
         Clz.print('PROFILE'.ljust(10,' ')                           , Clz.fgB1, False)
         Clz.print(', --view'.ljust(18,' ')                          , Clz.fgB3, False)
         Clz.print('PROFILE'.ljust(10,' ')                           , Clz.fgB1)
-        Clz.print(' '*50+'view the specified profile (or current)'  , Clz.fgB7)
+        Clz.print(' '*50+'view the specified profile (or * for all available)'  , Clz.fgB7)
         
         Clz.print(' '*4+'-S '                                       , Clz.fgB3, False)
         Clz.print('PROFILE'.ljust(10,' ')                           , Clz.fgB1, False)
@@ -605,10 +650,10 @@ class Cli:
         Clz.print(' '*50+'set imprastorage username'                , Clz.fgB7)
         
         Clz.print(' '*4+'-K '                                       , Clz.fgB3, False)
-        Clz.print('LENGTH'.ljust(10,' ')                            , Clz.fgB1, False)
+        Clz.print(''.ljust(10,' ')                                  , Clz.fgB1, False)
         Clz.print(', --gen-key'.ljust(18,' ')                       , Clz.fgB3, False)
-        Clz.print('LENGTH'.ljust(10,' ')                            , Clz.fgB1)
-        Clz.print(' '*50+'generate a new key of optionnal LENGTH length (default:256)', Clz.fgB7)
+        Clz.print(''.ljust(10,' ')                                  , Clz.fgB1)
+        Clz.print(' '*50+'generate a new key'                       , Clz.fgB7)
         
         Clz.print(' '*4+'-H '                                       , Clz.fgB3, False)
         Clz.print('HOST'.ljust(10,' ')                              , Clz.fgB1, False)

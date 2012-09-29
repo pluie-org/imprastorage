@@ -3,7 +3,7 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #                                                                               #
 #   software  : ImpraStorage <http://imprastorage.sourceforge.net/>             #
-#   version   : 0.4                                                             #
+#   version   : 0.6                                                             #
 #   date      : 2012                                                            #
 #   licence   : GPLv3.0   <http://www.gnu.org/licenses/>                        #
 #   author    : a-Sansara <http://www.a-sansara.net/>                           #
@@ -87,7 +87,8 @@ class FSplitter :
 
     def _split(self, fromPath, hlst):
         """"""
-        rt = RuTime(eval(__CALLER__()))
+        from impra.util import DEBUG_NOTICE, DEBUG, DEBUG_LEVEL, DEBUG_INFO
+        rt = RuTime(eval(__CALLER__()),DEBUG_INFO)
         f = open(fromPath, 'rb+')
         m = mmap(f.fileno(), 0)
         p = 0
@@ -577,11 +578,11 @@ class ImpraStorage:
         rt = RuTime(eval(__CALLER__()),DEBUG_INFO)
         if self.idx != None :
             self.ih.delete(self.idx, True)
-        if len(self.delids) > 0 :
-            for i in self.delids : self.ih.delete(i, True, False)
-            Clz.print('\n expunge, waiting server...\n', Clz.fgB1)
-            self.srv.expunge()
-            sleep(2)
+        #~ if len(self.delids) > 0 :
+            #~ for i in self.delids : self.ih.delete(i, True, False)
+            #~ Clz.print('\n expunge, waiting server...\n', Clz.fgB1)
+            #~ self.srv.expunge()
+            #~ sleep(2)
         encData  = self.index.encrypt() 
         msgIndex = self.mb.buildIndex(encData)        
         if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : print(msgIndex.as_string())
@@ -613,7 +614,7 @@ class ImpraStorage:
         """"""
         lloc = [bytes(str(data[0]),'utf-8') for mid, data in enumerate(sendIds)]
         lsrv = self.ih.searchBySubject(subject,True)
-        return  [ i for i in set(lloc).difference(set(lsrv))]
+        return  [ int(i) for i in set(lloc).difference(set(lsrv))]
     
     def addFile(self, path, label, catg=''):
         """"""
@@ -622,11 +623,10 @@ class ImpraStorage:
         rt = RuTime(eval(__CALLER__('"%s","%s","%s"' % (path[:13]+'...',label,catg))),DEBUG_INFO)
 
         _, ext = splitext(path)
-        
-        try:            
+        try:
             size = getsize(path)
-            if size > 0 :                
-                md5  = hash_md5_file(path)
+            if size > 0 :
+                md5  = hash_sha256(path)
                 print()
                 Clz.print(' file   : ' , Clz.fgn7, False)
                 Clz.print(path         , Clz.fgN1)
@@ -659,40 +659,42 @@ class ImpraStorage:
                         msg  = self.mb.build(usr,'all',hlst['head'][2],self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
                         mid  = self.ih.send(msg.as_string(), self.rootBox)
                         if mid is not None :
-                            print(' ',end='')
-                            Clz.print('part '        , Clz.fgn7, False)
-                            Clz.print(str(row[0])    , Clz.fgB2, False)
-                            Clz.print(' sent as msg ', Clz.fgn7, False)
-                            Clz.print(str(mid[1])    , Clz.fgB1)                            
-                            sendIds.append((mid[1],row))
-                        else:
-                            print('\n-- error occured when sending part : %s\n-- retrying' % row[0])
-                            mid  = self.ih.send(msg.as_string(), self.rootBox)
-                            if mid is not None :
-                                print('part %s sent as msg %s' % (row[0],mid[1]))
+                            # dont remove
+                            status, resp = self.ih.fetch(mid[1],'(UID BODYSTRUCTURE)', True)
+                            if status == self.ih.OK:
                                 sendIds.append((mid[1],row))
-                            else: 
-                                print('\n-- can\'t send part %s\n-- cancelling ' % row[0])
-                                cancel = True
-                                break
+                                print(' ',end='')
+                                Clz.print('part '        , Clz.fgn7, False)
+                                Clz.print(str(row[0])    , Clz.fgB2, False)
+                                Clz.print(' sent as msg ', Clz.fgn7, False)
+                                Clz.print(str(mid[1])    , Clz.fgB1)
+                            else:
+                                print('\n-- error occured when sending part : %s\n-- retrying' % row[0])
                     print()
                     if not cancel :
                         self.index.add(hlst['head'][3],label,hlst['head'][1],ext,ownerHash,catg,md5,bFlag,size)
-                        done = self.saveIndex()
-                        self.conf.set('nid', str(self.index.id),'index')
                         diff = self.checkSendIds(sendIds,hlst['head'][2])
+                        for mid in diff :
+                            if mid > 0:
+                                print(mid)
+                                #self.ih.delete(str(mid), True, False)
+                                print('toto')
+                        self.conf.set('nid', str(self.index.id),'index')                        
                         if len(diff) > 0 :
                             Clz.print(' error when sending, missing parts :', Clz.fgB1)
-                            print(diff)
-                            for mid, row in sendIds :
-                                msg  = self.mb.build(usr,'all',hlst['head'][2],self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
-                                Clz.print(' resending part '      , Clz.fgn7, False)
-                                Clz.print(str(row[0])             , Clz.fgN2, False)
-                                mid  = self.ih.send(msg.as_string(), self.rootBox)
+                            for mid in diff :
+                                # bugfix mid would be without +1
+                                k = [ k for k in sendIds if len(k)>0 and int(k[0]) == int(mid+1)]
+                                if len(k) > 0 :
+                                    row = k[0][1]
+                                    msg  = self.mb.build(usr,'all',hlst['head'][2],self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
+                                    Clz.print(' resending part '      , Clz.fgn7, False)
+                                    Clz.print(str(row[0])             , Clz.fgN2)
+                                    mid  = self.ih.send(msg.as_string(), self.rootBox)
                         else :
                             print()
                             #Clz.print(' index intall files checked\n', Clz.fgB2)
-                            
+                        done = self.saveIndex()    
 
                     # clean 
                     for mid, row in sendIds :
@@ -714,6 +716,7 @@ class ImpraStorage:
                 print()
                 
         except Exception as e :
+            print('Erroreuh')
             print(e)
         rt.stop()
         return done
@@ -739,7 +742,7 @@ class ImpraStorage:
                 self.ih.delete(mid, True, False)
             Clz.print('\n expunge, waiting pls...\n', Clz.fgB1)
             self.ih.srv.expunge()
-            sleep(2)
+            sleep(0.5)
             self.index.rem(key)
             done = self.saveIndex()
             rt.stop()
@@ -761,11 +764,11 @@ class ImpraStorage:
             rt  = RuTime(eval(__CALLER__('"[%i] %s"' % (row[ImpraIndex.UID],row[ImpraIndex.LABEL]))),DEBUG_INFO)
             ck    = ConfigKey(row[ImpraIndex.HASH])
             hlst  = ck.getHashList(key,row[ImpraIndex.PARTS],True)
-            ids   = self._getIdsBySubject(hlst['head'][2])
+            ids   = self.ih.searchBySubject(hlst['head'][2],True)
             if len(ids) >= row[ImpraIndex.PARTS]:
 
                 for mid in ids :
-                    self.ih.downloadAttachment(mid,self.fsplit.DIR_INBOX)
+                    self.ih.downloadAttachment(mid,self.fsplit.DIR_INBOX, True)
                 if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : 
                     print(hlst['head'])
                     for v in hlst['data']:
@@ -781,13 +784,13 @@ class ImpraStorage:
 
             else :
                 print()
-                Clz.print(' == `'                         , Clz.bg3+Clz.fgB4, False)
-                Clz.print(row[ImpraIndex.LABEL]           , Clz.bg3+Clz.fgB1, False)
-                Clz.print('` invalid count parts '        , Clz.bg3+Clz.fgB4)
-                Clz.print(str(len(ids))                   , Clz.bg3+Clz.fgB1)                
-                Clz.print('/'                             , Clz.bg3+Clz.fgB4)
-                Clz.print(str(len(row[ImpraIndex.PARTS])) , Clz.bg3+Clz.fgB1)
-                Clz.print(' == '                          , Clz.bg3+Clz.fgB4)                
+                Clz.print(' == `'                         , Clz.BG3+Clz.fgB1, False)
+                Clz.print(row[ImpraIndex.LABEL]           , Clz.BG3+Clz.fgB4, False)
+                Clz.print('` invalid count parts '        , Clz.BG3+Clz.fgB1, False)
+                Clz.print(str(len(ids))                   , Clz.BG3+Clz.fgB4, False)                
+                Clz.print('/'                             , Clz.BG3+Clz.fgB1, False)
+                Clz.print(str(row[ImpraIndex.PARTS])      , Clz.BG3+Clz.fgB4, False)
+                Clz.print(' == '                          , Clz.BG3+Clz.fgB1)                
                 print()
 
             rt.stop()

@@ -3,7 +3,7 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #                                                                               #
 #   software  : ImpraStorage <http://imprastorage.sourceforge.net/>             #
-#   version   : 0.4                                                             #
+#   version   : 0.6                                                             #
 #   date      : 2012                                                            #
 #   licence   : GPLv3.0   <http://www.gnu.org/licenses/>                        #
 #   author    : a-Sansara <http://www.a-sansara.net/>                           #
@@ -30,6 +30,11 @@ from impra.core import ImpraConf, ImpraStorage
 from impra.util import IniFile, RuTime, get_file_path
 from impra.cli  import Cli
 import sys, os
+
+# TODO
+#   - check encrypt marker on crypt file
+#   - readjust cli commands
+#   - write help in colors
 
 if __name__ == '__main__':
 

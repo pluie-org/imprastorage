@@ -3,7 +3,7 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #                                                                               #
 #   software  : ImpraStorage <http://imprastorage.sourceforge.net/>             #
-#   version   : 0.4                                                             #
+#   version   : 0.6                                                             #
 #   date      : 2012                                                            #
 #   licence   : GPLv3.0   <http://www.gnu.org/licenses/>                        #
 #   author    : a-Sansara <http://www.a-sansara.net/>                           #
@@ -334,23 +334,23 @@ class ImapHelper:
             else :
                 status, resp = self.srv.store(mid, '+FLAGS', '\\Deleted')
             Clz.print(' flag msg ' , Clz.fgn7, False)
-            Clz.print(str(mid)     , Clz.fgB1, False)
+            Clz.print(str(int(mid)), Clz.fgB1, False)
             Clz.print(' as deleted', Clz.fgn7)
             
             if expunge :
                 Clz.print('\n expunge, waiting server...\n', Clz.fgB1)
                 self.srv.expunge()
-                sleep(2)
+                sleep(0.5)
             
         rt.stop()
         return status == self.OK
 
-    def downloadAttachment(self, msg, toDir='./'):
+    def downloadAttachment(self, msg, toDir='./', byUid=False):
         """"""
         from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_INFO
         rt = RuTime(eval(__CALLER__('%i' % int(msg))),DEBUG_INFO)
         if not isinstance(msg, Message) :
-            msg = self.email(msg)
+            msg = self.email(msg,byUid)
         for part in msg.walk():
             filename = part.get_filename()
             if filename != None and DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : print(filename)
