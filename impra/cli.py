@@ -98,13 +98,11 @@ class Cli:
         parser = _OptionParser()
         parser.print_help  = self.print_help
         parser.print_usage = self.print_usage
-        
-        gpData      = OptionGroup(parser, '\n------------------------------------\ndata related Options (command data)')
-        gpConf      = OptionGroup(parser, '\n------------------------------------\nconf related Options (command conf)')
-        
+        self.wkpath        = path+core.sep+'wk'+core.sep
+        gpData      = OptionGroup(parser, '')
+        gpConf      = OptionGroup(parser, '')
 
         # metavar='<ARG1> <ARG2>', nargs=2
-        parser.add_option('-v', '--version'       , help='show program\'s version number and exit'                     , action='store_true' , default=False)
         parser.add_option('-q', '--quiet'         , help='don\'t print status messages to stdout'                      , action='store_false', default=True)
         parser.add_option('-d', '--debug'         , help='set debug mode'                                              , action='store_true' , default=False)
         
@@ -135,21 +133,13 @@ class Cli:
         if not a:
 
             try :
-                if o.version : 
-                    self.print_header()
-                    sys.exit(0)
-            except Exception as ex: 
-                pass
-
-            try :
                 if not o.help : 
-                    parser.error(' no commando specified')
-                    sys.exit(1)
-                else : 
+                    self.parserError(' no commando specified')
+                else :
+                    core.clear()
                     parser.print_help()
             except :
-                parser.error(' no commando specified')
-                sys.exit(1)
+                self.parserError(' no commando specified')
 
         else:
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -185,27 +175,32 @@ class Cli:
                         else :
                             if o.set_port and not util.represents_int(o.set_port):
                                 parser.error(' port must be a number')
-                                sys.exit(1)
-                            if o.set_boxname: self.ini.set('box' , o.set_boxname,o.active_profile+'.imap')
-                            if o.set_host: self.ini.set('host', o.set_host,o.active_profile+'.imap')
-                            if o.set_user: self.ini.set('user', o.set_user,o.active_profile+'.imap')
-                            if o.set_pass: self.ini.set('pass', o.set_pass,o.active_profile+'.imap')
-                            if o.set_port: self.ini.set('port', o.set_port,o.active_profile+'.imap')                    
-                            if o.set_name: self.ini.set('name', o.set_name,o.active_profile+'.infos')
-                            if o.gen_key:
-                                kg = crypt.KeyGen(256)
-                                self.ini.set('key' ,kg.key,o.active_profile+'.keys')
-                                self.ini.set('mark',kg.mark,o.active_profile+'.keys')
-                                self.ini.set('salt','-¤-ImpraStorage-¤-',o.active_profile+'.keys')
-                            if self.check_profile(o.active_profile):
-                                self.ini.set('profile', o.active_profile)
-                            self.ini.write()
-                            self.ini.print(o.active_profile)
+                                self.exit(1)
+                            else :
+                                if o.set_boxname: self.ini.set('box' , o.set_boxname,o.active_profile+'.imap')
+                                if o.set_host: self.ini.set('host', o.set_host,o.active_profile+'.imap')
+                                if o.set_user: self.ini.set('user', o.set_user,o.active_profile+'.imap')
+                                if o.set_pass: self.ini.set('pass', o.set_pass,o.active_profile+'.imap')
+                                if o.set_port: self.ini.set('port', o.set_port,o.active_profile+'.imap')                    
+                                if o.set_name: self.ini.set('name', o.set_name,o.active_profile+'.infos')
+                                if o.gen_key:
+                                    kg = crypt.KeyGen(256)
+                                    self.ini.set('key' ,kg.key,o.active_profile+'.keys')
+                                    self.ini.set('mark',kg.mark,o.active_profile+'.keys')
+                                    self.ini.set('salt','-¤-ImpraStorage-¤-',o.active_profile+'.keys')
+                                if self.check_profile(o.active_profile):
+                                    self.ini.set('profile', o.active_profile)
+                                self.ini.write()
+                                self.ini.print(o.active_profile)
                 elif o.check :
                     self.check_profile(o.check, True)
 
                 else :
                     self.print_usage('')
+            
+            elif a[0] == 'help':
+                core.clear()
+                parser.print_help()
 
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # ~~ data CMD ~~
@@ -215,11 +210,12 @@ class Cli:
                     
                     
                 if self.check_profile(o.active_profile):
+                    core.clear()
                     self.print_header()
                     conf  = core.ImpraConf(self.ini,o.active_profile)
                     impst = None
                     try:                        
-                        impst = core.ImpraStorage(conf)
+                        impst = core.ImpraStorage(conf, False, self.wkpath)
                     except crypt.BadKeyException as e :
                         print()
                         Clz.print(' it seems that your current profile `'                    , Clz.fgB1, False)
@@ -232,13 +228,13 @@ class Cli:
                         remIndex = input(' remove index ? (yes/no) ')
                         if remIndex.lower()=='yes':
                             Clz.print(' ',Clz.OFF)
-                            impst = core.ImpraStorage(conf, True)
+                            impst = core.ImpraStorage(conf, True, self.wkpath)
                             
                         else : 
                             print()
                             print(' bye')
                             print()
-                            sys.exit(1)
+                            self.exit(1)
 
 
                     if a[0]=='list':
@@ -284,46 +280,46 @@ class Cli:
 
                     elif a[0] == 'add':
                         if not len(a)>1 : self.error_cmd('`'+a[0]+' need at least one argument',parser)
-
-                        vfile = a[1]
-                        if util.file_exists(vfile) :
-                            if not len(a)>2 :
-                                label, ext  = core.splitext(core.basename(vfile))
-                            else: label = a[2]
-                            if o.category is None : o.category = ''
-                            done = impst.addFile(vfile,label,o.category)
-                            if done :
-                                print('\n ',end='')
-                                Clz.print(' == OK == ', Clz.bg2+Clz.fgb7)
-                                print()
-                            
-                        else : self.error_cmd('`'+a[1]+' is not a file',parser)
+                        else:
+                            vfile = a[1]
+                            if util.file_exists(vfile) :
+                                if not len(a)>2 :
+                                    label, ext  = core.splitext(core.basename(vfile))
+                                else: label = a[2]
+                                if o.category is None : o.category = ''
+                                done = impst.addFile(vfile,label,o.category)
+                                if done :
+                                    print('\n ',end='')
+                                    Clz.print(' == OK == ', Clz.bg2+Clz.fgb7)
+                                    print()
+                                
+                            else : self.error_cmd('`'+a[1]+' is not a file',parser)
 
 
                     elif a[0] == 'get':
                         
                         if not len(a)>1 : self.error_cmd('`'+a[0]+' need one argument',parser)
-
-                        vid = a[1]
-                        ids = []
-                        for sid in vid.split(',') :
-                            seq = sid.split('-')
-                            if len(seq)==2 : ids.extend(range(int(seq[0]),int(seq[1])+1))
-                            else: ids.append(sid)
-                        for sid in ids :                                
-                            key = impst.index.getById(str(sid))
-                            if key !=None : 
-                                done = impst.getFile(key)
-                                if done :
+                        else:
+                            vid = a[1]
+                            ids = []
+                            for sid in vid.split(',') :
+                                seq = sid.split('-')
+                                if len(seq)==2 : ids.extend(range(int(seq[0]),int(seq[1])+1))
+                                else: ids.append(sid)
+                            for sid in ids :                                
+                                key = impst.index.getById(str(sid))
+                                if key !=None : 
+                                    done = impst.getFile(key)
+                                    if done :
+                                        print('\n ',end='')
+                                        Clz.print(' == OK == ', Clz.bg2+Clz.fgb7)
+                                        print()
+                                else: 
                                     print('\n ',end='')
-                                    Clz.print(' == OK == ', Clz.bg2+Clz.fgb7)
+                                    Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
+                                    Clz.print(str(sid)                 , Clz.bg1+Clz.fgB3, False)
+                                    Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
                                     print()
-                            else: 
-                                print('\n ',end='')
-                                Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
-                                Clz.print(str(sid)                 , Clz.bg1+Clz.fgB3, False)
-                                Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
-                                print()
 
 
                     elif a[0] == 'search':
@@ -333,80 +329,85 @@ class Cli:
                         account = conf.get('user','imap')
                         
                         if not len(a)>1 : self.error_cmd('`'+a[0]+' need one argument',parser)
-                        vsearch = a[1]
-                        
-                        matchIds = impst.index.getByPattern(vsearch)
-                        core.clear()
-                        if matchIds is not None:
-                            printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
-                            printHeaderTitle(APP_TITLE)
-                            printHeaderPart('account',account)
-                            printHeaderPart('index',uid)
-                            printHeaderPart('box',impst.rootBox)
-                            Clz.print(date, Clz.fgB7, True, True)
-                            printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
-                            Clz.print(' searching --'   , Clz.fgB3, False)
-                            Clz.print(' `'+vsearch+'`' , Clz.fgB7, False)
-                            Clz.print(' -- found '      , Clz.fgB3, False)
-                            Clz.print(str(len(matchIds)), Clz.fgB1, False)
-                            Clz.print(' results --'     , Clz.fgB3)
-                            printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+                        else : 
+
+                            vsearch = a[1]
                             
-                            matchIdsCatg = None                            
-                            matchIdsUser = None
-                            matchIdsCrit = None
-                            if o.category is not None :
-                                print(o.category)
-                                matchIdsCatg = impst.index.getByCategory(o.category)
-                            if o.user is not None :
-                                matchIdsUser = impst.index.getByUser(o.user)
-                            
-                            if o.category is not None :                                
+                            matchIds = impst.index.getByPattern(vsearch)
+                            core.clear()
+                            if matchIds is not None:
+                                printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+                                printHeaderTitle(APP_TITLE)
+                                printHeaderPart('account',account)
+                                printHeaderPart('index',uid)
+                                printHeaderPart('box',impst.rootBox)
+                                Clz.print(date, Clz.fgB7, True, True)
+                                printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+                                Clz.print(' searching --'   , Clz.fgB3, False)
+                                Clz.print(' `'+vsearch+'`' , Clz.fgB7, False)
+                                Clz.print(' -- found '      , Clz.fgB3, False)
+                                Clz.print(str(len(matchIds)), Clz.fgB1, False)
+                                Clz.print(' results --'     , Clz.fgB3)
+                                printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+                                
+                                matchIdsCatg = None                            
+                                matchIdsUser = None
+                                matchIdsCrit = None
+                                if o.category is not None :
+                                    print(o.category)
+                                    matchIdsCatg = impst.index.getByCategory(o.category)
                                 if o.user is not None :
-                                    matchIdsCrit = impst.index.getIntersection(matchIdsCatg,matchIdsUser)
-                                else : matchIdsCrit = matchIdsCatg
-                            
-                            elif o.user is not None :
-                                matchIdsCrit = matchIdsUser      
-                            
-                            if matchIdsCrit is not None :
-                                matchIds = impst.index.getIntersection(matchIds,matchIdsCrit)
-                            
-                            order = o.order
-                            if o.order_inv is not None:
-                                order = '-'+o.order_inv
-                            impst.index.print(o.order,matchIds)
-                        else:
-                            print('\n ',end='')
-                            Clz.print(' == no match found for pattern `', Clz.bg3+Clz.fgB4, False)
-                            Clz.print(vsearch                           , Clz.bg3+Clz.fgB1, False)
-                            Clz.print('` == '                           , Clz.bg3+Clz.fgB4)
-                            print()
+                                    matchIdsUser = impst.index.getByUser(o.user)
+                                
+                                if o.category is not None :                                
+                                    if o.user is not None :
+                                        matchIdsCrit = impst.index.getIntersection(matchIdsCatg,matchIdsUser)
+                                    else : matchIdsCrit = matchIdsCatg
+                                
+                                elif o.user is not None :
+                                    matchIdsCrit = matchIdsUser      
+                                
+                                if matchIdsCrit is not None :
+                                    matchIds = impst.index.getIntersection(matchIds,matchIdsCrit)
+                                
+                                order = o.order
+                                if o.order_inv is not None:
+                                    order = '-'+o.order_inv
+                                impst.index.print(o.order,matchIds)
+                            else:
+                                print('\n ',end='')
+                                Clz.print(' == no match found for pattern `', Clz.bg3+Clz.fgB4, False)
+                                Clz.print(vsearch                           , Clz.bg3+Clz.fgB1, False)
+                                Clz.print('` == '                           , Clz.bg3+Clz.fgB4)
+                                print()
 
                     elif a[0] == 'remove':
                         
                         if not len(a)>1 : self.error_cmd('`'+a[0]+' need one argument',parser)                        
-                        if not util.represents_int(a[1]):
-                            print('\n ',end='')
-                            Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
-                            Clz.print(a[1]                     , Clz.bg1+Clz.fgB3, False)
-                            Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
-                            print()
-                            sys.exit(1)
-                        vid = a[1]
-                        key = impst.index.getById(vid)
-                        if key !=None : 
-                            done = impst.removeFile(key)
-                            if done :
+                        else :
+
+                            if not util.represents_int(a[1]):
                                 print('\n ',end='')
-                                Clz.print(' == OK == ', Clz.bg2+Clz.fgb7)
+                                Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
+                                Clz.print(a[1]                     , Clz.bg1+Clz.fgB3, False)
+                                Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
                                 print()
-                        else: 
-                            print('\n ',end='')
-                            Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
-                            Clz.print(a[1]                     , Clz.bg1+Clz.fgB3, False)
-                            Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
-                            print()
+                                self.exit(1)
+                            else : 
+                                vid = a[1]
+                                key = impst.index.getById(vid)
+                                if key !=None : 
+                                    done = impst.removeFile(key)
+                                    if done :
+                                        print('\n ',end='')
+                                        Clz.print(' == OK == ', Clz.bg2+Clz.fgb7)
+                                        print()
+                                else: 
+                                    print('\n ',end='')
+                                    Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
+                                    Clz.print(a[1]                     , Clz.bg1+Clz.fgB3, False)
+                                    Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
+                                    print()
 
             else : 
                 self.error_cmd('unknow command `'+a[0]+'`',parser)
@@ -414,8 +415,19 @@ class Cli:
     
     
     def error_cmd(self,msg, parser):
-        parser.error(msg)
-        sys.exit(1)
+        core.clear()
+        self.print_usage('')
+        Clz.print('error : '+msg,Clz.fgB7)
+        self.exit(1)
+
+    def parserError(self, msg):
+        core.clear()
+        self.print_usage('')
+        Clz.print('error : '+msg,Clz.fgB7)
+        self.exit(1)
+
+    def exit(self, code):
+        if Clz.isUnix : sys.exit(code)
 
     def check_profile(self,profile, activeCheck=False):
         """"""
@@ -427,7 +439,7 @@ class Cli:
                 conf  = core.ImpraConf(self.ini,profile)
                 impst = None
                 try:                        
-                    impst = core.ImpraStorage(conf)
+                    impst = core.ImpraStorage(conf, False, self.wkpath)
                     Clz.print(' done...', Clz.fgB2)
                 except crypt.BadKeyException as e :
                     pass
@@ -469,27 +481,30 @@ class Cli:
   
         Clz.print('  USAGE :\n', Clz.fgB3)
         Clz.print('    imprastorage ', Clz.fgb7, False)
-        Clz.print('--help ', Clz.fgB3)
+        if Clz.isUnix:
+            Clz.print('--help ', Clz.fgB3)
+        else:
+            Clz.print('help ', Clz.fgB3)
                 
         Clz.print('    imprastorage ', Clz.fgb7, False)
         Clz.print('add ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
-        Clz.print('filePath', Clz.fgb1, False)
+        Clz.print('filePath', Clz.fgB1, False)
         Clz.print('} ', Clz.fgB1, False)
         Clz.print('[', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
-        Clz.print('name', Clz.fgb1, False)
+        Clz.print('name', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
         Clz.print(' -c ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
-        Clz.print('category', Clz.fgb1, False)
+        Clz.print('category', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
         Clz.print(']', Clz.fgB3)
 
         Clz.print('    imprastorage ', Clz.fgb7, False)
         Clz.print('get ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
-        Clz.print('id|ids', Clz.fgb1, False)
+        Clz.print('id|ids', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1)
 
         Clz.print('    imprastorage ', Clz.fgb7, False)
@@ -497,45 +512,45 @@ class Cli:
         Clz.print('[', Clz.fgB3, False)
         Clz.print(' -c ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
-        Clz.print('category', Clz.fgb1, False)
+        Clz.print('category', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
         Clz.print(' -u ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
-        Clz.print('user', Clz.fgb1, False)
+        Clz.print('user', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
         Clz.print(' -o', Clz.fgB3, False)
         Clz.print('|', Clz.fgB1, False)
         Clz.print('-O ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
-        Clz.print('colon', Clz.fgb1, False)
+        Clz.print('colon', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
         Clz.print(']', Clz.fgB3)
         
         Clz.print('    imprastorage ', Clz.fgb7, False)
         Clz.print('remove ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
-        Clz.print('id', Clz.fgb1, False)
+        Clz.print('id', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1)
         
         Clz.print('    imprastorage ', Clz.fgb7, False)
         Clz.print('search ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
-        Clz.print('pattern', Clz.fgb1, False)
+        Clz.print('pattern', Clz.fgB1, False)
         Clz.print('} ', Clz.fgB1, False)
         Clz.print('[', Clz.fgB3, False)
         Clz.print(' -c ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
-        Clz.print('category', Clz.fgb1, False)
+        Clz.print('category', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
         Clz.print(' -u ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
-        Clz.print('user', Clz.fgb1, False)
+        Clz.print('user', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
         Clz.print(' -o', Clz.fgB3, False)
         Clz.print('|', Clz.fgB1, False)
         Clz.print('-O ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
-        Clz.print('colon', Clz.fgb1, False)
+        Clz.print('colon', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
         Clz.print(']', Clz.fgB3)
         
@@ -545,14 +560,14 @@ class Cli:
         Clz.print('|', Clz.fgB1, False)
         Clz.print('-V ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
-        Clz.print('profile', Clz.fgb1, False)
+        Clz.print('profile', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1)
 
         Clz.print('    imprastorage ', Clz.fgb7, False)
         Clz.print('conf', Clz.fgB3, False)        
         Clz.print(' -S ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
-        Clz.print('profile', Clz.fgb1, False)
+        Clz.print('profile', Clz.fgB1, False)
         Clz.print('} ', Clz.fgB1, False)
         Clz.print('[', Clz.fgB3, False)
         Clz.print(' -K', Clz.fgB3, False)
@@ -592,8 +607,6 @@ class Cli:
         Clz.print(' '*50+'don\'t print status messages to stdout'   , Clz.fgB7)
         Clz.print(' '*4+'-d, --debug'                               , Clz.fgB3)
         Clz.print(' '*50+'set debug mode'                           , Clz.fgB7)
-        Clz.print(' '*4+'-v, --version'                             , Clz.fgB3)
-        Clz.print(' '*50+'show program\'s version number'           , Clz.fgB7)
         print('\n')
         
         Clz.print('  COMMANDS OPTIONS :\n'                          , Clz.fgB3)
@@ -692,7 +705,7 @@ class Cli:
         """"""
         self.print_header()
         Clz.print(APP_DESC, Clz.fgN1)
-        self.print_usage('', True)
+        self.print_usage('',True)
         self.print_options()
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
         print()

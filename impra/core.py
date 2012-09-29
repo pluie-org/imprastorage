@@ -630,7 +630,7 @@ class ImpraStorage:
                 print()
                 Clz.print(' file   : ' , Clz.fgn7, False)
                 Clz.print(path         , Clz.fgN1)
-                Clz.print(' md5sum : ' , Clz.fgn7, False)                
+                Clz.print(' hash   : ' , Clz.fgn7, False)                
                 Clz.print(md5          , Clz.fgN2)
                 print()
                 if not self.index.get(md5) :

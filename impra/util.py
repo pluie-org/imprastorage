@@ -51,7 +51,6 @@ DEBUG_INFO   = 3
 
 DEBUG       = True
 DEBUG_LEVEL = DEBUG_INFO
-
 COLOR_MODE  = True
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -447,7 +446,7 @@ class Coloriz:
                 # normal eq bold
                 exec('self._wn%i = self._wf%i' % (i,i))
                 # normal high intensity eq bold high intensity
-                exec('self._wN%i = self._wB%i' % (i,i))
+                exec('self._wN%i = self._wF%i' % (i,i))
                 j += 1
                 
         if not self.isUnix :
