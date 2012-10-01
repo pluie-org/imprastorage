@@ -264,7 +264,7 @@ class ImpraIndex:
     COLS           = ('HASH','LABEL','PART','TYPE','USER','CATEGORY','ID','BLFAG','SIZE')
     """"""
     
-    def __init__(self, key, mark, encdata='', dicCategory={}, id=0):
+    def __init__(self, key, mark, encdata='', dicCategory={}):
         """Initialize the index with rsa and encoded data
 
         :Parameters:
@@ -277,10 +277,13 @@ class ImpraIndex:
                 and representing a dic index as json string
         """
         self.km   = Kirmah(key, mark)
-        self.dic  = {}
-        self.id   = id
-        if encdata =='' : self.dic = {}
-        else : self.dic = self.decrypt(encdata)
+        self.dic  = {}        
+        if encdata =='' :
+            self.dic = {}
+            self.id = 1
+        else :
+            self.dic = self.decrypt(encdata)
+            self.id = max([self.dic[k][self.UID] for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)])+1
         for k in dicCategory :
             if not self.SEP_KEY_INTERN+k in self.dic:
                 self.dic[self.SEP_KEY_INTERN+k] = dicCategory[k]
@@ -363,6 +366,29 @@ class ImpraIndex:
         if len(r)==1: l = r[0]
         rt.stop()
         return l
+
+    def fixDuplicateIds(self):
+        """Get corresponding keys of duplicate ids in the index
+        :Returns: `str`|None key
+        """
+        rt = RuTime(eval(__CALLER__()))
+        r = [k for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)]
+        l = [(k,self.dic[k][self.UID]) for k in r]
+        l2 = [k[1] for k in l]
+        mxid = max(l2)
+        import collections
+        l3 = [x for x, y in collections.Counter(l2).items() if y > 1]
+        d  = [k[0] for k in l if any( k[1] == v for v in l3)]
+        for k in d:
+            mxid += 1
+            print(self.dic[k])
+            t = list(self.dic[k])            
+            t[self.UID] = mxid
+            print(t)
+            self.dic[k] = tuple(t)
+        self.id = mxid+1
+        rt.stop()
+        return len(d)>0
 
     def getByLabel(self,label):
         """Get the corresponding label in the index
@@ -449,7 +475,7 @@ class ImpraIndex:
         print('SIZE'  +' '*5 , end='')
         print('PART'  +' '*2 , end='')
         print('TYPE'  +' '*2 , end='')
-        print('USER ' +' '*10, end='')
+        print('USER'  +' '*11, end='')
         Clz.print('CATEGORY'+' '*22, Clz.BG4+Clz.fgB7)
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
         
@@ -465,10 +491,10 @@ class ImpraIndex:
                 Clz.print(formatBytes(int(v[self.SIZE]))[:8].rjust(8,' ')+' '*2  , Clz.fgN5, False)
                 Clz.print(str(v[self.PARTS]).rjust(2 ,'0') +' '*2                , Clz.fgN1, False)
                 Clz.print(str(v[self.EXT][:5]).ljust(7,' ')                      , Clz.fgn3, False)
-                Clz.print(self.getUser(str(v[self.USER])).ljust(16  ,' ')        , Clz.fgn7, False)
+                Clz.print(self.getUser(str(v[self.USER])).ljust(15  ,' ')        , Clz.fgn7, False)
                 Clz.print(str(v[self.CATG]) +' '*2                               , Clz.fgN3)
 
-        printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+        printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)        
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -487,7 +513,11 @@ class ImpraStorage:
         self.pathInd = dirname(self.conf.ini.path)+sep+'.index'
         self.rootBox = self.conf.get('box','imap')
         iconf        = ImapConfig(self.conf.get('host','imap'), self.conf.get('port','imap'), self.conf.get('user', 'imap'), self.conf.get('pass', 'imap'))
-        self.ih      = ImapHelper(iconf,self.rootBox)
+        try :
+            self.ih      = ImapHelper(iconf,self.rootBox)
+        except Exception as e:
+            print('Error : '+e)
+            print('check your connection or your imap config')
         self.mb      = MailBuilder(self.conf.get('salt','keys'))
         self.fsplit  = FSplitter(ConfigKey(),self.wkdir)
         self.delids  = []
@@ -529,7 +559,7 @@ class ImpraStorage:
         usrName = self.conf.get('name','infos')
         return {'catg':self.conf.get('types','catg'), 'users':{ ('%s' % self.mb.getHashName('all')) : 'all', ('%s' % self.mb.getHashName(usrName)) : usrName}}
 
-    def getIndex(self):
+    def getIndex(self, forceRefresh=False):
         """"""
         from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_WARN, DEBUG_INFO       
         rt = RuTime(eval(__CALLER__()),DEBUG_INFO)
@@ -537,11 +567,9 @@ class ImpraStorage:
         encData = ''
         uid     = self.conf.get('uid'  ,'index')
         date    = self.conf.get('date ','index')
-        nid     = self.conf.get('nid'  ,'index')
         tstamp  = self.conf.get('time' ,'index')
-        if nid is None : nid = 0
-        refresh = False
-        if tstamp is not None and (datetime.now() - datetime.strptime(tstamp[:-7], '%Y-%m-%d %H:%M:%S')) < timedelta(minutes = 3) :
+        refresh = forceRefresh
+        if not refresh and tstamp is not None and (datetime.now() - datetime.strptime(tstamp[:-7], '%Y-%m-%d %H:%M:%S')) < timedelta(minutes = 1) :
             # getFromFile
             if uid != None and file_exists(self.pathInd): # int(self.idx) == int(uid) 
                 self.idx = uid
@@ -558,7 +586,7 @@ class ImpraStorage:
                     o.write(encData)
                 self.conf.set('time',str(datetime.now()),'index')
 
-        index = ImpraIndex(self.conf.get('key','keys'),self.conf.get('mark','keys'), encData, self.getIndexDefaultCatg(), int(nid))
+        index = ImpraIndex(self.conf.get('key','keys'),self.conf.get('mark','keys'), encData, self.getIndexDefaultCatg())
         rt.stop()
         return index
         
@@ -583,6 +611,7 @@ class ImpraStorage:
             #~ Clz.print('\n expunge, waiting server...\n', Clz.fgB1)
             #~ self.srv.expunge()
             #~ sleep(2)
+        self.index.fixDuplicateIds()    
         encData  = self.index.encrypt() 
         msgIndex = self.mb.buildIndex(encData)        
         if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : print(msgIndex.as_string())
@@ -620,7 +649,7 @@ class ImpraStorage:
         """"""
         done = False
         from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, DEBUG_INFO
-        rt = RuTime(eval(__CALLER__('"%s","%s","%s"' % (path[:13]+'...',label,catg))),DEBUG_INFO)
+        rt = RuTime(eval(__CALLER__()),DEBUG_INFO)
 
         _, ext = splitext(path)
         try:
@@ -672,14 +701,12 @@ class ImpraStorage:
                                 print('\n-- error occured when sending part : %s\n-- retrying' % row[0])
                     print()
                     if not cancel :
-                        self.index.add(hlst['head'][3],label,hlst['head'][1],ext,ownerHash,catg,md5,bFlag,size)
+
                         diff = self.checkSendIds(sendIds,hlst['head'][2])
                         for mid in diff :
                             if mid > 0:
                                 print(mid)
                                 #self.ih.delete(str(mid), True, False)
-                                print('toto')
-                        self.conf.set('nid', str(self.index.id),'index')                        
                         if len(diff) > 0 :
                             Clz.print(' error when sending, missing parts :', Clz.fgB1)
                             for mid in diff :
@@ -694,6 +721,8 @@ class ImpraStorage:
                         else :
                             print()
                             #Clz.print(' index intall files checked\n', Clz.fgB2)
+                        self.index = self.getIndex(True)
+                        self.index.add(hlst['head'][3],label,hlst['head'][1],ext,ownerHash,catg,md5,bFlag,size)
                         done = self.saveIndex()    
 
                     # clean 
@@ -743,6 +772,7 @@ class ImpraStorage:
             Clz.print('\n expunge, waiting pls...\n', Clz.fgB1)
             self.ih.srv.expunge()
             sleep(0.5)
+            self.index = self.getIndex(True)
             self.index.rem(key)
             done = self.saveIndex()
             rt.stop()

@@ -145,7 +145,7 @@ class Cli:
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # ~~ conf CMD ~~
             if a[0] == 'conf' :
-                self.print_header()
+                core.clear()
                 if o.load is not None or o.view is not None or o.save is not None :
                     
                     if o.view is not None :
@@ -159,9 +159,12 @@ class Cli:
                         if self.ini.has('profile') : o.active_profile = self.ini.get('profile')
                         else : o.active_profile = 'default'
                     
-                    if o.load : self.load_profile(o)
+                    if o.load : 
+                        self.print_header()
+                        self.load_profile(o)
 
                     elif o.view :
+                        self.print_header()
                         if o.view == 'all' :
                             sections = self.ini.getSections()
                             if len(sections) > 0:
@@ -170,6 +173,7 @@ class Cli:
                         else: self.ini.print(o.view)
 
                     elif o.save :
+                        self.print_header()
                         if not o.set_host and not o.set_user and not o.set_pass and not o.set_port and not o.set_boxname and not o.set_name and not o.gen_key:
                             parser.error(' no options specified')
                         else :
@@ -190,9 +194,10 @@ class Cli:
                                     self.ini.set('salt','-¤-ImpraStorage-¤-',o.active_profile+'.keys')
                                 if self.check_profile(o.active_profile):
                                     self.ini.set('profile', o.active_profile)
-                                self.ini.write()
+                                self.ini.write()                                
                                 self.ini.print(o.active_profile)
                 elif o.check :
+                    self.print_header()
                     self.check_profile(o.check, True)
 
                 else :

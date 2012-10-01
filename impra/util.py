@@ -344,7 +344,11 @@ class IniFile:
                         if len(self.dic[s][k]) > 50: a = '...'
                         Clz.print(k.ljust(10,' ')+' = '       , Clz.fgn7, False)
                         if Clz.isUnix or k is not 'key' :
-                            Clz.print(self.dic[s][k][:50]+a, Clz.fgN2)
+                            try :
+                                Clz.print(self.dic[s][k][:50]+a, Clz.fgN2)
+                            except Exception as e:
+                                Clz.print('value is masked - generate errors in your os', Clz.fgb1)
+                                pass
                         else: Clz.print('key is masked', Clz.fgb1)
     
     def read(self):
