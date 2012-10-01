@@ -178,7 +178,7 @@ class ImapHelper:
 
     def status(self,box='INBOX'):
         """"""
-        status, resp = ih.srv.status(box, '(MESSAGES RECENT UIDNEXT UIDVALIDITY UNSEEN)')
+        status, resp = self.srv.status(box, '(MESSAGES RECENT UIDNEXT UIDVALIDITY UNSEEN)')
         if status == 'OK' :
             data = search(self.REG_SATUS,bstr(resp[self.K_HEAD]))
             l = split(' ',data.group(2))

@@ -285,8 +285,13 @@ class ImpraIndex:
             self.dic = self.decrypt(encdata)
             self.id = max([self.dic[k][self.UID] for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)])+1
         for k in dicCategory :
-            if not self.SEP_KEY_INTERN+k in self.dic:
-                self.dic[self.SEP_KEY_INTERN+k] = dicCategory[k]
+            if k == "users" :
+                for k1 in dicCategory[k]:
+                    if k1 not in self.dic[self.SEP_KEY_INTERN+k]:
+                        self.dic[self.SEP_KEY_INTERN+k][k1] = dicCategory[k][k1]
+            else :
+                if not self.SEP_KEY_INTERN+k in self.dic:
+                    self.dic[self.SEP_KEY_INTERN+k] = dicCategory[k]
 
     def add(self,key, label, count, ext='', usr='', cat='', md5='', bFlag='b', size=''):
         """Add an entry to the index
@@ -355,6 +360,21 @@ class ImpraIndex:
         row = None
         if key in self.dic : row = self.dic.get(key)
         return row
+
+    def edit(self, key, label=None, category=None):
+        """Get the corresponding key in the index
+        :Returns: `tuple` row
+        """
+        done = False
+        row  = self.dic[key]
+        r    = list(row)
+        if label != None :
+            r[self.LABEL] = label
+        if category != None :
+            r[self.CATG] = category
+        self.dic[key] = tuple(r)
+        done = row != self.dic[key]
+        return done
         
     def getById(self,sid):
         """Get the corresponding id in the index
@@ -481,6 +501,8 @@ class ImpraIndex:
         
         d = sorted([(self.dic.get(k),k) for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)], reverse=inv, key=lambda lst:lst[0][orderIndex])
         a = ''
+        tsize = 0
+        psize = 0
         for v,k in d :
             if matchIds==None or v[self.UID] in matchIds:
                 a = ''
@@ -493,8 +515,18 @@ class ImpraIndex:
                 Clz.print(str(v[self.EXT][:5]).ljust(7,' ')                      , Clz.fgn3, False)
                 Clz.print(self.getUser(str(v[self.USER])).ljust(15  ,' ')        , Clz.fgn7, False)
                 Clz.print(str(v[self.CATG]) +' '*2                               , Clz.fgN3)
+                psize += int(v[self.SIZE])
+            tsize += int(v[self.SIZE])
 
-        printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)        
+        printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+        c = Clz.fgB2
+        if psize != tsize : c = Clz.fgB7
+        Clz.print('size : ', Clz.fgB3, False)
+        Clz.print(formatBytes(int(psize))[:9].rjust(9,' '), c, False)
+        if psize != tsize :
+            Clz.print(' / ', Clz.fgB3, False)
+            Clz.print(formatBytes(int(tsize)), Clz.fgB2)
+        print()
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -556,8 +588,12 @@ class ImpraStorage:
 
     def getIndexDefaultCatg(self):
         """"""
-        usrName = self.conf.get('name','infos')
-        return {'catg':self.conf.get('types','catg'), 'users':{ ('%s' % self.mb.getHashName('all')) : 'all', ('%s' % self.mb.getHashName(usrName)) : usrName}}
+        usrName  = self.conf.get('name','infos')
+        defUsers = self.conf.get('users','catg').split(',')
+        dic      = {'catg':self.conf.get('types','catg'), 'users':{ ('%s' % self.mb.getHashName('all')) : 'all', ('%s' % self.mb.getHashName(usrName)) : usrName}}
+        for u in defUsers :
+           dic['users'][('%s' % self.mb.getHashName(u.strip()))] = u.strip()
+        return dic
 
     def getIndex(self, forceRefresh=False):
         """"""
@@ -586,7 +622,11 @@ class ImpraStorage:
                     o.write(encData)
                 self.conf.set('time',str(datetime.now()),'index')
 
-        index = ImpraIndex(self.conf.get('key','keys'),self.conf.get('mark','keys'), encData, self.getIndexDefaultCatg())
+        index    = ImpraIndex(self.conf.get('key','keys'),self.conf.get('mark','keys'), encData, self.getIndexDefaultCatg())
+        defUsers = self.conf.get('users','catg')
+        for k in index.dic[ImpraIndex.SEP_KEY_INTERN+'users']:
+            if index.dic[ImpraIndex.SEP_KEY_INTERN+'users'][k] not in [ i.strip() for i in defUsers.split(',')]:
+                self.conf.set('users',defUsers+', '+index.dic[ImpraIndex.SEP_KEY_INTERN+'users'][k],'catg')        
         rt.stop()
         return index
         
@@ -748,6 +788,22 @@ class ImpraStorage:
             print('Erroreuh')
             print(e)
         rt.stop()
+        return done
+
+
+    def editFile(self,key,label,category):
+        """"""
+        from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, DEBUG_INFO
+        done = False
+        row  = self.index.get(key)
+        if row==None : 
+                print()
+                Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
+                Clz.print(str(key)                 , Clz.bg1+Clz.fgB3, False)
+                Clz.print('` not on the server == ', Clz.bg1+Clz.fgB7)
+                print()
+        else :
+            done = self.index.edit(key,label,category)
         return done
 
     def removeFile(self,key):

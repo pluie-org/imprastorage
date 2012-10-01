@@ -156,7 +156,7 @@ def formatBytes(b, p=2):
     #Uncomment one of the following alternatives
     b /= pow(1024,p)
     #b /= (1 << (10 * p)) 
-    return str(round(b, p))+' '+units[p] 
+    return str(round(b, 1))+' '+units[p] 
 
 def bstr(b,enc='utf-8'):
     """"""

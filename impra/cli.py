@@ -108,6 +108,7 @@ class Cli:
         
         gpData.add_option('-c', '--category'      , help='set specified CATEGORY (crit. for opt. -l,-a or -s)'         , action='store',       metavar='CATG         ')
         gpData.add_option('-u', '--user'          , help='set specified USER (crit. for opt. -l,-a or -s)'             , action='store',       metavar='OWNER        ')
+        gpData.add_option('-l', '--label'         , help='set specified LABEL (edit mode only)'                        , action='store',       metavar='LABEL        ')
         gpData.add_option('-o', '--order'         , help='set colon ORDER (crit. for opt. -l and -s)'                  , action='store',       metavar='ORDER        '  , default='ID')
         gpData.add_option('-O', '--order-inv'     , help='set colon ORDER_INVERSE (crit. for opt. -l and -s)'          , action='store',       metavar='ORDER_INVERSE')
         #gpData.add_option('-o', '--output-dir'    , help='set specified OUTPUT DIR (for opt. -l,-a,-d or -g)'          , action='store',       metavar='DIR        ')
@@ -209,7 +210,7 @@ class Cli:
 
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # ~~ data CMD ~~
-            elif a[0] == 'list' or a[0] == 'add' or a[0] == 'get' or a[0] == 'remove' or a[0] == 'search' :
+            elif a[0] == 'list' or a[0] == 'add' or a[0] == 'get' or a[0] == 'remove' or a[0] == 'search' or a[0] == 'edit':
 
                 o.active_profile = self.ini.get('profile')
                     
@@ -300,10 +301,42 @@ class Cli:
                                 
                             else : self.error_cmd('`'+a[1]+' is not a file',parser)
 
+                    elif a[0] == 'edit':
+                        if not len(a)>1 : self.error_cmd('`'+a[0]+' need an id',parser)
+                        else:
+                            if not util.represents_int(a[1]):
+                                print('\n ',end='')
+                                Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
+                                Clz.print(a[1]                     , Clz.bg1+Clz.fgB3, False)
+                                Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
+                                print()
+                                self.exit(1)
+                            else : 
+                                vid = a[1]
+                                key = impst.index.getById(vid)
+                                if key !=None : 
+                                    done = impst.editFile(key,o.label,o.category)
+                                    if done :
+                                        impst.saveIndex()
+                                        print('\n ',end='')
+                                        Clz.print(' == OK == ', Clz.bg2+Clz.fgb7)
+                                        print()
+                                    else :
+                                        print('\n ',end='')
+                                        Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
+                                        Clz.print(a[1]                     , Clz.bg1+Clz.fgB3, False)
+                                        Clz.print('` has not been modified == ', Clz.bg1+Clz.fgB7)
+                                        print()                                        
+                                else: 
+                                    print('\n ',end='')
+                                    Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
+                                    Clz.print(a[1]                     , Clz.bg1+Clz.fgB3, False)
+                                    Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
+                                    print()
 
                     elif a[0] == 'get':
                         
-                        if not len(a)>1 : self.error_cmd('`'+a[0]+' need one argument',parser)
+                        if not len(a)>1 : self.error_cmd('`'+a[0]+' need an id',parser)
                         else:
                             vid = a[1]
                             ids = []
@@ -388,7 +421,7 @@ class Cli:
 
                     elif a[0] == 'remove':
                         
-                        if not len(a)>1 : self.error_cmd('`'+a[0]+' need one argument',parser)                        
+                        if not len(a)>1 : self.error_cmd('`'+a[0]+' need an id',parser)                        
                         else :
 
                             if not util.represents_int(a[1]):
@@ -507,6 +540,22 @@ class Cli:
         Clz.print(']', Clz.fgB3)
 
         Clz.print('    imprastorage ', Clz.fgb7, False)
+        Clz.print('edit ', Clz.fgB3, False)
+        Clz.print('{', Clz.fgB1, False)
+        Clz.print('id', Clz.fgB1, False)
+        Clz.print('} ', Clz.fgB1, False)
+        Clz.print('[', Clz.fgB3, False)
+        Clz.print(' -l ', Clz.fgB3, False)
+        Clz.print('{', Clz.fgB1, False)
+        Clz.print('label', Clz.fgB1, False)
+        Clz.print('}', Clz.fgB1, False)
+        Clz.print(' -c ', Clz.fgB3, False)
+        Clz.print('{', Clz.fgB1, False)
+        Clz.print('category', Clz.fgB1, False)
+        Clz.print('}', Clz.fgB1, False)
+        Clz.print(']', Clz.fgB3)
+
+        Clz.print('    imprastorage ', Clz.fgb7, False)
         Clz.print('get ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
         Clz.print('id|ids', Clz.fgB1, False)
@@ -563,7 +612,9 @@ class Cli:
         Clz.print('conf', Clz.fgB3, False)        
         Clz.print(' -L', Clz.fgB3, False)
         Clz.print('|', Clz.fgB1, False)
-        Clz.print('-V ', Clz.fgB3, False)
+        Clz.print('-V', Clz.fgB3, False)
+        Clz.print('|', Clz.fgB1, False)
+        Clz.print('-C ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
         Clz.print('profile', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1)
@@ -626,6 +677,12 @@ class Cli:
         Clz.print(', --user'.ljust(18,' ')                          , Clz.fgB3, False)
         Clz.print('USER'.ljust(10,' ')                              , Clz.fgB1)
         Clz.print(' '*50+'set a user'                               , Clz.fgB7)
+
+        Clz.print(' '*4+'-l '                                       , Clz.fgB3, False)
+        Clz.print('LABEL'.ljust(10,' ')                             , Clz.fgB1, False)
+        Clz.print(', --label'.ljust(18,' ')                         , Clz.fgB3, False)
+        Clz.print('LABEL'.ljust(10,' ')                             , Clz.fgB1)
+        Clz.print(' '*50+'set a label (edit mode only)'             , Clz.fgB7)
         
         Clz.print(' '*4+'-o '                                       , Clz.fgB3, False)
         Clz.print('COLON'.ljust(10,' ')                             , Clz.fgB1, False)
@@ -651,7 +708,13 @@ class Cli:
         Clz.print('PROFILE'.ljust(10,' ')                           , Clz.fgB1, False)
         Clz.print(', --view'.ljust(18,' ')                          , Clz.fgB3, False)
         Clz.print('PROFILE'.ljust(10,' ')                           , Clz.fgB1)
-        Clz.print(' '*50+'view the specified profile (or * for all available)'  , Clz.fgB7)
+        Clz.print(' '*50+'view the specified profile (or \'all\' for view availables)'  , Clz.fgB7)
+
+        Clz.print(' '*4+'-C '                                       , Clz.fgB3, False)
+        Clz.print('PROFILE'.ljust(10,' ')                           , Clz.fgB1, False)
+        Clz.print(', --check'.ljust(18,' ')                         , Clz.fgB3, False)
+        Clz.print('PROFILE'.ljust(10,' ')                           , Clz.fgB1)
+        Clz.print(' '*50+'check the specified profile'              , Clz.fgB7)
         
         Clz.print(' '*4+'-S '                                       , Clz.fgB3, False)
         Clz.print('PROFILE'.ljust(10,' ')                           , Clz.fgB1, False)
@@ -715,34 +778,66 @@ class Cli:
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
         print()
         Clz.print('  EXEMPLES :\n', Clz.fgB3)
-        
+        CHQ  = "'"
+        sep = core.sep
+        HOME = sep+'home'+sep
+        if not Clz.isUnix :
+            CHQ  = '"'
+            HOME = 'C:'+sep
         
         Clz.print(' '*4+'command add :', Clz.fgB3)
         
         Clz.print(' '*8+'# add (upload) a file',Clz.fgn7)
         Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
         Clz.print('add ', Clz.fgB3, False)
-        Clz.print('/home/Share/2009-mountains.avi', Clz.fgB1)
+        Clz.print(HOME+'Share'+sep+'2009-mountains.avi', Clz.fgB1)
         
         Clz.print(' '*8+'# add a file with a label (label will be the filename on downloading)',Clz.fgn7)
         Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
         Clz.print('add ', Clz.fgB3, False)
-        Clz.print('/home/Share/2009-mountains.avi \'summer 2009 - in mountains\'', Clz.fgB1)
+        Clz.print(HOME+'Share'+sep+'2009-mountains.avi '+CHQ+'summer 2009 - in mountains'+CHQ, Clz.fgB1)
         
         Clz.print(' '*8+'# add a file on a category (category will be the dir structure on downloading)',Clz.fgn7)
         Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
         Clz.print('add ', Clz.fgB3, False)
-        Clz.print('/home/Share/2009-mountains.avi', Clz.fgB1, False)
+        Clz.print(HOME+'Share'+sep+'2009-mountains.avi', Clz.fgB1, False)
         Clz.print(' -c ', Clz.fgB3, False)
         Clz.print('videos/perso/2009', Clz.fgB1)
         
         Clz.print(' '*8+'# add a file with a label on a category',Clz.fgn7)
         Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
         Clz.print('add ', Clz.fgB3, False)
-        Clz.print('/home/Share/2009-mountains.avi \'summer 2009 - in mountains\'', Clz.fgB1, False)
+        Clz.print(HOME+'Share'+sep+'2009-mountains.avi '+CHQ+'summer 2009 - in mountains'+CHQ, Clz.fgB1, False)
         Clz.print(' -c ', Clz.fgB3, False)
         Clz.print('videos/perso/2009', Clz.fgB1)
 
+
+        printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+        Clz.print('\n'+' '*4+'command edit :', Clz.fgB3)
+        
+        Clz.print(' '*8+'# edit label on file with id 15',Clz.fgn7)
+        Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
+        Clz.print('edit ', Clz.fgB3, False)
+        Clz.print('15', Clz.fgB1, False)
+        Clz.print(' -l ' , Clz.fgB3, False)
+        Clz.print('newName', Clz.fgB1)
+
+        Clz.print(' '*8+'# edit category on file with id 15',Clz.fgn7)
+        Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
+        Clz.print('edit ', Clz.fgB3, False)
+        Clz.print('15', Clz.fgB1, False)
+        Clz.print(' -c ' , Clz.fgB3, False)
+        Clz.print('new/category', Clz.fgB1)
+
+        Clz.print(' '*8+'# edit label and category on file with id 15',Clz.fgn7)
+        Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
+        Clz.print('edit ', Clz.fgB3, False)
+        Clz.print('15', Clz.fgB1, False)
+        Clz.print(' -c ' , Clz.fgB3, False)
+        Clz.print('new/category', Clz.fgB1, False)
+        Clz.print(' -c ' , Clz.fgB3, False)
+        Clz.print(CHQ+'my newName'+CHQ, Clz.fgB1)
+        
         
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
         Clz.print('\n'+' '*4+'command get :', Clz.fgB3)
@@ -824,21 +919,21 @@ class Cli:
         Clz.print(' '*8+'# search all files wich contains `old mountain` on category `videos/perso`',Clz.fgn7)
         Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
         Clz.print('search ', Clz.fgB3, False)
-        Clz.print('\'old mountain\'', Clz.fgB1, False)
+        Clz.print(CHQ+'old mountain'+CHQ, Clz.fgB1, False)
         Clz.print(' -c ' , Clz.fgB3, False)
         Clz.print('videos/perso', Clz.fgB1)
         
         Clz.print(' '*8+'# search all files wich contains `old mountain` sent by user `bob`',Clz.fgn7)
         Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
         Clz.print('search ', Clz.fgB3, False)
-        Clz.print('\'old mountain\'', Clz.fgB1, False)
+        Clz.print(CHQ+'old mountain'+CHQ, Clz.fgB1, False)
         Clz.print(' -u ' , Clz.fgB3, False)
         Clz.print('bob', Clz.fgB1)
         
         Clz.print(' '*8+'# search all files wich contains `old mountain` (reverse sorted by SIZE)',Clz.fgn7)
         Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
         Clz.print('search ', Clz.fgB3, False)
-        Clz.print('\'old mountain\'', Clz.fgB1, False)
+        Clz.print(CHQ+'old mountain'+CHQ, Clz.fgB1, False)
         Clz.print(' -O ' , Clz.fgB3, False)
         Clz.print('SIZE', Clz.fgB1)
 
@@ -846,7 +941,7 @@ class Cli:
         Clz.print(' '*8+'# sorted by LABEL)',Clz.fgn7)
         Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
         Clz.print('search ', Clz.fgB3, False)
-        Clz.print('\'old mountain\'', Clz.fgB1, False)
+        Clz.print(CHQ+'old mountain'+CHQ, Clz.fgB1, False)
         Clz.print(' -c ' , Clz.fgB3, False)
         Clz.print('videos/perso', Clz.fgB1, False)        
         Clz.print(' -u '  , Clz.fgB3, False)
@@ -857,12 +952,12 @@ class Cli:
         Clz.print(' '*8+'# search all files starting by `old mountain`',Clz.fgn7)
         Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
         Clz.print('search ', Clz.fgB3, False)
-        Clz.print('\'^old mountain\'', Clz.fgB1)
+        Clz.print(CHQ+'^old mountain'+CHQ, Clz.fgB1)
 
         Clz.print(' '*8+'# search all files ending by `old mountain`',Clz.fgn7)
         Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
         Clz.print('search ', Clz.fgB3, False)
-        Clz.print('\'old mountain$\'', Clz.fgB1)
+        Clz.print(CHQ+'old mountain$'+CHQ, Clz.fgB1)
         
         
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
@@ -885,6 +980,12 @@ class Cli:
         Clz.print('bob22 ', Clz.fgB1, False)
         Clz.print('-X ', Clz.fgB3, False)
         Clz.print('mypassword ', Clz.fgB1)
+
+        Clz.print(' '*8+'# check config profile bobimap (current profile doesn\'t change)',Clz.fgn7)
+        Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
+        Clz.print('conf ', Clz.fgB3, False)
+        Clz.print('-C ', Clz.fgB3, False)
+        Clz.print('bobimap ', Clz.fgB1)
         
         Clz.print(' '*8+'# load config profile bobimap and set it as current profile',Clz.fgn7)
         Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
