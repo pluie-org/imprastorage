@@ -41,7 +41,7 @@ LINE_SEP_LEN  = 120
 LINE_SEP_CHAR = '―'
 if not Clz.isUnix : LINE_SEP_CHAR = '-'
 APP_TITLE     = 'ImpraStorage'
-APP_VERSION   = '0.6'
+APP_VERSION   = '0.7'
 APP_AUTHOR    = 'a-Sansara'
 APP_COPY      = 'pluie.org'
 APP_LICENSE   = 'GNU GPLv3'
@@ -143,6 +143,7 @@ class Cli:
                 self.parserError(' no commando specified')
 
         else:
+
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # ~~ conf CMD ~~
             if a[0] == 'conf' :
@@ -210,7 +211,7 @@ class Cli:
 
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # ~~ data CMD ~~
-            elif a[0] == 'list' or a[0] == 'add' or a[0] == 'get' or a[0] == 'remove' or a[0] == 'search' or a[0] == 'edit':
+            elif not self.ini.isEmpty() and (a[0] == 'list' or a[0] == 'add' or a[0] == 'get' or a[0] == 'remove' or a[0] == 'search' or a[0] == 'edit'):
 
                 o.active_profile = self.ini.get('profile')
                     
@@ -447,8 +448,28 @@ class Cli:
                                     Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
                                     print()
 
-            else : 
-                self.error_cmd('unknow command `'+a[0]+'`',parser)
+            else :
+                if self.ini.isEmpty() :
+                    Clz.print(' '*4+'ImpraStorage has no configuration file !!', Clz.fgB1)
+                    print()
+                    Clz.print(' '*8+'# to create the config file you must use this command with appropriate values :',Clz.fgn7)
+                    Clz.print(' '*8+'# type command help for details',Clz.fgn7)
+                    Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
+                    Clz.print('conf ', Clz.fgB3, False)
+                    Clz.print('-S ', Clz.fgB3, False)
+                    Clz.print('profileName ', Clz.fgB1, False)
+                    Clz.print('-N ', Clz.fgB3, False)
+                    Clz.print('yourName ', Clz.fgB1, False)        
+                    Clz.print('-K -H ', Clz.fgB3, False)
+                    Clz.print('your.host.net ', Clz.fgB1, False)
+                    Clz.print('-P ', Clz.fgB3, False)
+                    Clz.print('993 ', Clz.fgB1, False)
+                    Clz.print('-U ', Clz.fgB3, False)
+                    Clz.print('accountName ', Clz.fgB1, False)
+                    Clz.print('-X ', Clz.fgB3, False)
+                    Clz.print('accountPassword ', Clz.fgB1)
+                else :
+                    self.error_cmd('unknow command `'+a[0]+'`',parser)
         print()
     
     
