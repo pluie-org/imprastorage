@@ -3,7 +3,7 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #                                                                               #
 #   software  : ImpraStorage <http://imprastorage.sourceforge.net/>             #
-#   version   : 0.7                                                             #
+#   version   : 0.8                                                             #
 #   date      : 2012                                                            #
 #   licence   : GPLv3.0   <http://www.gnu.org/licenses/>                        #
 #   author    : a-Sansara <http://www.a-sansara.net/>                           #
@@ -186,7 +186,7 @@ def __CALLER__(args=''):
     """
     global DEBUG_LEVEL, DEBUG, DEBUG_WARN
     val = "self.__class__.__name__+'.%s' % stack()[1][3]+'("+quote_escape(args)+") "
-    if DEBUG and DEBUG_LEVEL<=DEBUG_WARN : val += "l:'+str(stack()[1][2]) "
+    if DEBUG and DEBUG_LEVEL<=DEBUG_WARN : val += "l:'+str(stack()[1][2])+' ' "
     else: val += "'"
     return val
 
@@ -270,7 +270,9 @@ class IniFile:
 
     def get(self, key, section='main'):
         """"""
-        return self.dic[section][key]
+        v = None
+        if self.has(key,section) : v = self.dic[section][key]
+        return v
 
     def set(self, key, val, section='main'):
         """"""
@@ -319,10 +321,9 @@ class IniFile:
                     #~ else : content += '\n['+s[len(section)+1:]+']\n'
                     content += '\n['+s+']\n'
                 for k in sorted(self.dic[s]):
-                    k = k.rstrip(' ')
                     if s!='main' :
-                        content += k+' = '+self.dic[s][k]+'\n'
-                    else : main += k+' = '+self.dic[s][k]+'\n'
+                        content += k.rstrip(' ')+' = '+str(self.dic[s][k])+'\n'
+                    else : main += k.rstrip(' ')+' = '+str(self.dic[s][k])+'\n'
         return main + content
     
     def print(self,section='*', withoutSectionName=False):

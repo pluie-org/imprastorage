@@ -1,7 +1,7 @@
 :: # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 ::                                                                               #
 ::   software  : ImpraStorage <http://imprastorage.sourceforge.net/>             #
-::   version   : 0.7                                                             #
+::   version   : 0.8                                                             #
 ::   date      : 2012                                                            #
 ::   licence   : GPLv3.0   <http://www.gnu.org/licenses/>                        #
 ::   author    : a-Sansara <http://www.a-sansara.net/>                           #

@@ -3,7 +3,7 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #                                                                               #
 #   software  : ImpraStorage <http://imprastorage.sourceforge.net/>             #
-#   version   : 0.7                                                             #
+#   version   : 0.8                                                             #
 #   date      : 2012                                                            #
 #   licence   : GPLv3.0   <http://www.gnu.org/licenses/>                        #
 #   author    : a-Sansara <http://www.a-sansara.net/>                           #
@@ -168,6 +168,7 @@ class ImapHelper:
         """"""
         rt = RuTime(eval(__CALLER__('conf,"'+box+'"')))
         self.srv = IMAP4_SSL(conf.host,conf.port)
+        self.conf = conf
         self.srv.login(conf.user,conf.pwd)
         self.rootBox = box
         status, resp = self.srv.select(self.rootBox)

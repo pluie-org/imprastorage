@@ -3,7 +3,7 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #                                                                               #
 #   software  : ImpraStorage <http://imprastorage.sourceforge.net/>             #
-#   version   : 0.7                                                             #
+#   version   : 0.8                                                             #
 #   date      : 2012                                                            #
 #   licence   : GPLv3.0   <http://www.gnu.org/licenses/>                        #
 #   author    : a-Sansara <http://www.a-sansara.net/>                           #
@@ -47,7 +47,7 @@ from re                   import split as regsplit, match as regmatch, compile a
 from time                 import time, sleep
 from impra.imap           import ImapHelper, ImapConfig
 from impra.util           import __CALLER__, RuTime, formatBytes, randomFrom, bstr, quote_escape, stack, run, file_exists, get_file_content, DEBUG, DEBUG_ALL, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, mkdir_p, is_binary, clear, Clz
-from impra.crypt          import Kirmah, ConfigKey, Noiser, Randomiz, hash_sha256, hash_md5_file, BadKeyException
+from impra.crypt          import Kirmah, ConfigKey, Noiser, Randomiz, hash_sha256, hash_md5_file, BadKeyException, hash_sha256_file
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -140,7 +140,7 @@ class FSplitter :
             Clz.print('\n deploying file as :' , Clz.fgn7)
             Clz.print(' '+basename(filePath)+ext                   , Clz.fgB2, False)
         filePath += ext
-            
+        filePath = abspath(filePath)
         fp = open(filePath, 'wb+')
         depDir = self.DIR_INBOX
         if fake : depDir = self.DIR_OUTBOX
@@ -256,6 +256,8 @@ class ImpraIndex:
     BFLAG          = 7
     """"""
     SIZE           = 8
+    """"""
+    ACCOUNT        = 9
     """"""    
     FILE_BINARY    = 'b'
     """"""
@@ -287,17 +289,18 @@ class ImpraIndex:
         for k in dicCategory :
             if k == "users" :
                 for k1 in dicCategory[k]:
-                    if k1 not in self.dic[self.SEP_KEY_INTERN+k]:
-                        self.dic[self.SEP_KEY_INTERN+k][k1] = dicCategory[k][k1]
+                    if self.SEP_KEY_INTERN+k in self.dic:
+                        if k1 not in self.dic[self.SEP_KEY_INTERN+k]:
+                            self.dic[self.SEP_KEY_INTERN+k][k1] = dicCategory[k][k1]
             else :
                 if not self.SEP_KEY_INTERN+k in self.dic:
                     self.dic[self.SEP_KEY_INTERN+k] = dicCategory[k]
 
-    def add(self,key, label, count, ext='', usr='', cat='', md5='', bFlag='b', size=''):
+    def add(self,key, label, count, ext='', usr='', cat='', md5='', bFlag='b', size='', account=''):
         """Add an entry to the index
         """
         if self.get(md5) == None : 
-            self.dic[md5] = (key,label,count,ext,usr,cat,self.id,bFlag,size)
+            self.dic[md5] = (key,label,count,ext,usr,cat,self.id,bFlag,size,account)
             self.id +=1
         else : 
             print(label+' already exist')
@@ -387,6 +390,33 @@ class ImpraIndex:
         rt.stop()
         return l
 
+    def fixAccount(self,account):
+        """"""
+        r = [k for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)]
+        for k in r:
+            t = list(self.dic[k])
+            t[self.ACCOUNT] = account
+            self.dic[k] = tuple(t)
+
+    def getLightestAccount(self,l):
+        """"""
+        r = [k for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)]
+        t = {}
+        for k in r:
+            if not self.dic[k][self.ACCOUNT] in t: t[self.dic[k][self.ACCOUNT]] = self.dic[k][self.SIZE]
+            else: t[self.dic[k][self.ACCOUNT]] += int(self.dic[k][self.SIZE])
+        account = None
+        r = []
+        for a in l:
+            if not a in t :
+                account = a
+                break
+            else : r.append((t[a],a))
+        if account is None :
+            d = sorted(r, reverse=False, key=lambda lst:lst[0])
+            account = d[0][1]
+        return account
+
     def fixDuplicateIds(self):
         """Get corresponding keys of duplicate ids in the index
         :Returns: `str`|None key
@@ -402,7 +432,7 @@ class ImpraIndex:
         for k in d:
             mxid += 1
             print(self.dic[k])
-            t = list(self.dic[k])            
+            t = list(self.dic[k])
             t[self.UID] = mxid
             print(t)
             self.dic[k] = tuple(t)
@@ -474,7 +504,7 @@ class ImpraIndex:
         """"""
         #~ print('decrypting index : ')
         try :
-            jdata = self.km.decrypt(data,'.index',22)        
+            jdata = self.km.decrypt(data,'.index',22)
             data  = jloads(jdata)
         except ValueError as e:
             raise BadKeyException(e)
@@ -489,24 +519,32 @@ class ImpraIndex:
         orderIndex = self.COLS.index(order)
         if orderIndex is None : orderIndex = self.COLS.index('ID')
         
-        Clz.print(' ID'+' '*1, Clz.BG4+Clz.fgB7, False, False)
+        d = sorted([(self.dic.get(k),k) for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)], reverse=inv, key=lambda lst:lst[0][orderIndex])
+
+        sizeid = 1+ceil(len(d))
+        if sizeid < 3 : sizeid = 3
+        sizeid = 3
+        addsize = abs(3 - sizeid); 
+        Clz.print(' ID'+' '*(1+addsize), Clz.BG4+Clz.fgB7, False, False)
         print('HASH'  +' '*6 , end='')
-        print('LABEL' +' '*35, end='')
+        print('LABEL' +' '*(35), end='')
         print('SIZE'  +' '*5 , end='')
         print('PART'  +' '*2 , end='')
         print('TYPE'  +' '*2 , end='')
         print('USER'  +' '*11, end='')
-        Clz.print('CATEGORY'+' '*22, Clz.BG4+Clz.fgB7)
-        printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+        print('CATEGORY'+' '*(22-addsize))
+        #print('CATEGORY'+' '*(22-addsize), end='')
+        #Clz.print('ACCOUNT'+' '*(3), Clz.BG4+Clz.fgB7)
+        printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)        
         
-        d = sorted([(self.dic.get(k),k) for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)], reverse=inv, key=lambda lst:lst[0][orderIndex])
         a = ''
         tsize = 0
         psize = 0
+        #~ acc   = {}        #~ acc   = {}
         for v,k in d :
             if matchIds==None or v[self.UID] in matchIds:
                 a = ''
-                Clz.print(str(v[self.UID]).rjust(1+ceil(len(str(v[self.UID]))/10),' ')+' ', Clz.bg1+Clz.fgB7, False)
+                Clz.print(str(v[self.UID]).rjust(sizeid,' '), Clz.bg1+Clz.fgB7, False)
                 Clz.print(' '+str(k)[0:6]+'... '                                 , Clz.fgN2, False)
                 if len(v[self.LABEL])>36 : a = '...'
                 Clz.print(str(v[self.LABEL][:36]+a).ljust(40,' ')                , Clz.fgN7, False)
@@ -514,20 +552,38 @@ class ImpraIndex:
                 Clz.print(str(v[self.PARTS]).rjust(2 ,'0') +' '*2                , Clz.fgN1, False)
                 Clz.print(str(v[self.EXT][:5]).ljust(7,' ')                      , Clz.fgn3, False)
                 Clz.print(self.getUser(str(v[self.USER])).ljust(15  ,' ')        , Clz.fgn7, False)
-                Clz.print(str(v[self.CATG]) +' '*2                               , Clz.fgN3)
+                Clz.print(str(v[self.CATG]).ljust(30 ,' ')                       , Clz.fgN3)
+                #~ Clz.print(str(v[self.CATG]).ljust(30 ,' ')                       , Clz.fgN3, False)
+                #~ if len(v)-1==self.ACCOUNT:
+                    #~ Clz.print(str(v[self.ACCOUNT]) +' '*2                        , Clz.fgN3)
+                    #~ if v[self.ACCOUNT] in acc :
+                        #~ acc[v[self.ACCOUNT]] += int(v[self.SIZE])
+                    #~ else : acc[v[self.ACCOUNT]] = int(v[self.SIZE])
+                #~ else: print()
                 psize += int(v[self.SIZE])
             tsize += int(v[self.SIZE])
-
+        if len(d)==0:
+            Clz.print(' empty', Clz.fgB1)
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
         c = Clz.fgB2
         if psize != tsize : c = Clz.fgB7
-        Clz.print('size : ', Clz.fgB3, False)
+        Clz.print(' size : ', Clz.fgB3, False)
         Clz.print(formatBytes(int(psize))[:9].rjust(9,' '), c, False)
         if psize != tsize :
             Clz.print(' / ', Clz.fgB3, False)
-            Clz.print(formatBytes(int(tsize)), Clz.fgB2)
+            Clz.print(formatBytes(int(tsize)), Clz.fgB2, False)
         print()
-
+        printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+        #~ Clz.print(' '*4+'[', Clz.fgB7, False)
+        #~ sep = ''
+        #~ for k in acc:
+            #~ if k!= '':
+                #~ Clz.print(sep+k,Clz.fgB3,False)
+                #~ Clz.print(':',Clz.fgB7,False)
+                #~ Clz.print(formatBytes(acc[k]),Clz.fgB2,False)
+                #~ if sep=='':sep = ','
+        #~ Clz.print(']', Clz.fgB7, False)
+        #~ print()
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~ class ImpraStorage ~~
@@ -543,19 +599,28 @@ class ImpraStorage:
         self.wkdir   = wkdir
         self.conf    = conf
         self.pathInd = dirname(self.conf.ini.path)+sep+'.index'
-        self.rootBox = self.conf.get('box','imap')
-        iconf        = ImapConfig(self.conf.get('host','imap'), self.conf.get('port','imap'), self.conf.get('user', 'imap'), self.conf.get('pass', 'imap'))
-        try :
-            self.ih      = ImapHelper(iconf,self.rootBox)
-        except Exception as e:
-            print('Error : '+e)
-            print('check your connection or your imap config')
+        self.rootBox = self.conf.get('box','imap')        
         self.mb      = MailBuilder(self.conf.get('salt','keys'))
         self.fsplit  = FSplitter(ConfigKey(),self.wkdir)
         self.delids  = []
+        self.ih      = None
+        self._setIndexImap()
         if remIndex  : self.removeIndex()
         self.index   = self.getIndex()
         rt.stop()
+
+    def _setIndexImap(self):
+        iconf        = ImapConfig(self.conf.get('host','imap'), self.conf.get('port','imap'), self.conf.get('user', 'imap'), self.conf.get('pass', 'imap'))
+        try :
+            if self.rootBox == None :
+                self.rootBox = '__impra__'
+                self.conf.set('box',self.rootBox,'imap')
+            if self.ih is None or self.ih.conf.user != iconf.user :
+                self.ih  = ImapHelper(iconf,self.rootBox)
+        except Exception as e:
+            print('Error :')
+            print(e)
+            print('check your connection or your imap config')
 
     def _getIdIndex(self):
         """"""
@@ -624,6 +689,8 @@ class ImpraStorage:
 
         index    = ImpraIndex(self.conf.get('key','keys'),self.conf.get('mark','keys'), encData, self.getIndexDefaultCatg())
         defUsers = self.conf.get('users','catg')
+        if not ImpraIndex.SEP_KEY_INTERN+'users' in index.dic:
+            index.dic[ImpraIndex.SEP_KEY_INTERN+'users'] = {}
         for k in index.dic[ImpraIndex.SEP_KEY_INTERN+'users']:
             if index.dic[ImpraIndex.SEP_KEY_INTERN+'users'][k] not in [ i.strip() for i in defUsers.split(',')]:
                 self.conf.set('users',defUsers+', '+index.dic[ImpraIndex.SEP_KEY_INTERN+'users'][k],'catg')        
@@ -651,7 +718,7 @@ class ImpraStorage:
             #~ Clz.print('\n expunge, waiting server...\n', Clz.fgB1)
             #~ self.srv.expunge()
             #~ sleep(2)
-        self.index.fixDuplicateIds()    
+        self.index.fixDuplicateIds()
         encData  = self.index.encrypt() 
         msgIndex = self.mb.buildIndex(encData)        
         if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : print(msgIndex.as_string())
@@ -685,22 +752,50 @@ class ImpraStorage:
         lsrv = self.ih.searchBySubject(subject,True)
         return  [ int(i) for i in set(lloc).difference(set(lsrv))]
     
+    def switchFileAccount(self,account=None):
+        """"""
+        al = self.conf.get('multi','imap')
+        if al is not None :
+            al    = eval(al)
+            if len(al) > 0:
+                if not self.conf.get('user','imap') in al:
+                    al[self.conf.get('user','imap')] = self.conf.get('pass','imap')
+                iconf = self.ih.conf
+                if iconf.user != account :
+                    # reinit
+                    iconf.user = None
+                    try :
+                        if account is None : account = self.index.getLightestAccount(al)
+                        if account in al :
+                            iconf.user = account
+                            iconf.pwd  = al[account]                    
+                        self.ih = ImapHelper(iconf,self.rootBox)
+                    except Exception as e:
+                        print('Error : ')
+                        print(e)
+                        print('check your connection or your imap config for account '+iconf.user+' : '+iconf.password)
+    
     def addFile(self, path, label, catg=''):
         """"""
         done = False
         from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, DEBUG_INFO
         rt = RuTime(eval(__CALLER__()),DEBUG_INFO)
+     
+        self.switchFileAccount()       
 
         _, ext = splitext(path)
         try:
             size = getsize(path)
             if size > 0 :
-                md5  = hash_sha256(path)
+                md5     = hash_sha256_file(path)
+                account = self.ih.conf.user
                 print()
-                Clz.print(' file   : ' , Clz.fgn7, False)
-                Clz.print(path         , Clz.fgN1)
-                Clz.print(' hash   : ' , Clz.fgn7, False)                
-                Clz.print(md5          , Clz.fgN2)
+                Clz.print(' account : '       , Clz.fgn7, False)
+                Clz.print(account             , Clz.fgB7)
+                Clz.print(' file    : '       , Clz.fgn7, False)
+                Clz.print(path                , Clz.fgN1)
+                Clz.print(' hash    : '       , Clz.fgn7, False)                
+                Clz.print(md5                 , Clz.fgN2)
                 print()
                 if not self.index.get(md5) :
                     
@@ -739,7 +834,7 @@ class ImpraStorage:
                                 Clz.print(str(mid[1])    , Clz.fgB1)
                             else:
                                 print('\n-- error occured when sending part : %s\n-- retrying' % row[0])
-                    print()
+
                     if not cancel :
 
                         diff = self.checkSendIds(sendIds,hlst['head'][2])
@@ -761,15 +856,17 @@ class ImpraStorage:
                         else :
                             print()
                             #Clz.print(' index intall files checked\n', Clz.fgB2)
+                        self._setIndexImap()
                         self.index = self.getIndex(True)
-                        self.index.add(hlst['head'][3],label,hlst['head'][1],ext,ownerHash,catg,md5,bFlag,size)
+                        self.index.add(hlst['head'][3],label,hlst['head'][1],ext,ownerHash,catg,md5,bFlag,size,account)                        
                         done = self.saveIndex()    
-
-                    # clean 
-                    for mid, row in sendIds :
-                        if cancel : self.ih.delete(mid, True)
-                        if file_exists(self.fsplit.DIR_OUTBOX+row[1]+'.ipr') : remove(self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
-                    self.clean()
+                    
+                    else : 
+                        # clean 
+                        for mid, row in sendIds :
+                            if cancel : self.ih.delete(mid, True)
+                            if file_exists(self.fsplit.DIR_OUTBOX+row[1]+'.ipr') : remove(self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
+                        self.clean()
 
                 else :
                     print(' ',end='')
@@ -787,6 +884,7 @@ class ImpraStorage:
         except Exception as e :
             print('Erroreuh')
             print(e)
+        self._setIndexImap()
         rt.stop()
         return done
 
@@ -819,6 +917,10 @@ class ImpraStorage:
                 print()
         else :
             rt  = RuTime(eval(__CALLER__('"[%i] %s"' % (row[ImpraIndex.UID],row[ImpraIndex.LABEL]))),DEBUG_INFO)
+            self.switchFileAccount(row[ImpraIndex.ACCOUNT])
+            account = self.ih.conf.user
+            Clz.print(' account : '       , Clz.fgn7, False)
+            Clz.print(account             , Clz.fgB7)
             ck    = ConfigKey(row[ImpraIndex.HASH])
             hlst  = ck.getHashList(key,row[ImpraIndex.PARTS],True)
             Clz.print(' get file list from server', Clz.fgn7)
@@ -828,6 +930,7 @@ class ImpraStorage:
             Clz.print('\n expunge, waiting pls...\n', Clz.fgB1)
             self.ih.srv.expunge()
             sleep(0.5)
+            self._setIndexImap()
             self.index = self.getIndex(True)
             self.index.rem(key)
             done = self.saveIndex()
@@ -848,6 +951,10 @@ class ImpraStorage:
             
         else :
             rt  = RuTime(eval(__CALLER__('"[%i] %s"' % (row[ImpraIndex.UID],row[ImpraIndex.LABEL]))),DEBUG_INFO)
+            self.switchFileAccount(row[ImpraIndex.ACCOUNT])
+            account = self.ih.conf.user
+            Clz.print(' account : '       , Clz.fgn7, False)
+            Clz.print(account             , Clz.fgB7)
             ck    = ConfigKey(row[ImpraIndex.HASH])
             hlst  = ck.getHashList(key,row[ImpraIndex.PARTS],True)
             ids   = self.ih.searchBySubject(hlst['head'][2],True)
@@ -878,7 +985,7 @@ class ImpraStorage:
                 Clz.print(str(row[ImpraIndex.PARTS])      , Clz.BG3+Clz.fgB4, False)
                 Clz.print(' == '                          , Clz.BG3+Clz.fgB1)                
                 print()
-
+            self._setIndexImap()
             rt.stop()
         return done
 

@@ -3,7 +3,7 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #                                                                               #
 #   software  : ImpraStorage <http://imprastorage.sourceforge.net/>             #
-#   version   : 0.7                                                             #
+#   version   : 0.8                                                             #
 #   date      : 2012                                                            #
 #   licence   : GPLv3.0   <http://www.gnu.org/licenses/>                        #
 #   author    : a-Sansara <http://www.a-sansara.net/>                           #
@@ -48,6 +48,12 @@ def hash_sha256(data):
     :Returns: `str`
     """
     return str(sha256(bytes(data,'utf-8')).hexdigest())
+
+def hash_sha256_file(path):
+    """Get a sha256 hash of str `data`
+    :Returns: `str`
+    """
+    return sha256(open(path, mode='rb').read()).hexdigest()
 
 def hash_md5_file(path):
     """Get a md5 hash of file from path
@@ -220,6 +226,17 @@ class Kirmah:
             i += 1
         rt.stop()
         return s
+    
+    def sign(self,data):
+        """"""
+        return hash_sha256(self.mark + hash_sha256(data)) + data
+        
+    def unsign(self,data):
+        """"""
+        d = data[64:]
+        if not data[:64] == hash_sha256(self.mark + hash_sha256(d)):
+            raise BadKeyException() 
+        else: return d
 
     def encrypt(self, odata, label, cpart):
         """"""
@@ -233,15 +250,14 @@ class Kirmah:
             dataEnc += self.ck.noiser.getNoise(row[2],True)+data[cp*psize:cp*psize+psize]+self.ck.noiser.getNoise(row[3],True)
             cp      += 1
 
-        dataEnc = str(b2a_base64(bytes(dataEnc,'utf-8')),'utf-8')
-
+        dataEnc = self.sign(str(b2a_base64(bytes(dataEnc,'utf-8')),'utf-8'))
         rt.stop()
         return dataEnc
     
     def decrypt(self, data, label, cpart):
         """"""
         rt      = RuTime(eval(__CALLER__()))
-        data    = str(a2b_base64(bytes(data,'utf-8')),'utf-8')
+        data    = str(a2b_base64(bytes(self.unsign(data),'utf-8')),'utf-8')
         dataDec = ''
         hlst    = self.ck.getHashList(label,cpart,True)
         cp = ni = si = ei = rsz = 0
