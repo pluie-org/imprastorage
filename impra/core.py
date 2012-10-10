@@ -45,10 +45,10 @@ from os                   import remove, urandom, sep
 from os.path              import abspath, dirname, join, realpath, basename, getsize, splitext
 from re                   import split as regsplit, match as regmatch, compile as regcompile, search as regsearch
 from time                 import time, sleep
-from impra.imap           import ImapHelper, ImapConfig
+from impra.imap           import ImapHelper, ImapConfig, BadLoginException
 from impra.util           import __CALLER__, RuTime, formatBytes, randomFrom, bstr, quote_escape, stack, run, file_exists, get_file_content, DEBUG, mkdir_p, is_binary, clear, Clz, mprint
 from impra.crypt          import Kirmah, ConfigKey, Noiser, Randomiz, hash_sha256, hash_md5_file, BadKeyException, hash_sha256_file
-
+from sys                  import exit as sysexit
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~ class FSplitter ~~
@@ -406,7 +406,10 @@ class ImpraIndex:
         r = [k for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)]
         for k in r:
             t = list(self.dic[k])
-            t[self.ACCOUNT] = account
+            if len(t)-1 < self.ACCOUNT:
+                t.append(account)
+            else:
+                t[self.ACCOUNT] = account
             self.dic[k] = tuple(t)
         rt.stop()
 
@@ -627,7 +630,7 @@ class ImpraStorage:
         self.ih      = None
         self._setIndexImap()
         if remIndex  : self.removeIndex()
-        self.index   = self.getIndex()
+        self.getIndex()
         rt.stop()
 
     def _setIndexImap(self):
@@ -637,11 +640,19 @@ class ImpraStorage:
                 self.rootBox = '__impra__'
                 self.conf.set('box',self.rootBox,'imap')
             if self.ih is None or self.ih.conf.user != iconf.user :
-                self.ih  = ImapHelper(iconf,self.rootBox)
+                try :
+                    self.ih  = ImapHelper(iconf,self.rootBox)
+                except BadLoginException as e1:
+                    Clz.print('Error :', Clz.fgB1, True, False)
+                    mprint(e1)
+                    Clz.print('', Clz.OFF)
+                    sysexit(1)
+
         except Exception as e:
-            mprint('Error :')
+            Clz.print('Error :', Clz.fgB1, True, False)
             mprint(e)
-            mprint('check your connection or your imap config')
+            Clz.print('check your connection or your imap config', Clz.fgB1)
+            sysexit(1)
 
     def _getIdIndex(self):
         """"""
@@ -698,6 +709,7 @@ class ImpraStorage:
                 Clz.print(' get index from cache', Clz.fgn7)
             else: refresh = True
         else: refresh = True
+        self.irefresh = refresh
         if refresh :
             Clz.print(' refreshing index', Clz.fgn7)
             self._getIdIndex()
@@ -706,16 +718,17 @@ class ImpraStorage:
                 with open(self.pathInd, mode='w', encoding='utf-8') as o:
                     o.write(encData)
                 self.conf.set('time',str(datetime.now()),'index')
-
-        index    = ImpraIndex(self.conf.get('key','keys'),self.conf.get('mark','keys'), encData, self.getIndexDefaultCatg())
-        defUsers = self.conf.get('users','catg')
-        if not ImpraIndex.SEP_KEY_INTERN+'users' in index.dic:
-            index.dic[ImpraIndex.SEP_KEY_INTERN+'users'] = {}
-        for k in index.dic[ImpraIndex.SEP_KEY_INTERN+'users']:
-            if index.dic[ImpraIndex.SEP_KEY_INTERN+'users'][k] not in [ i.strip() for i in defUsers.split(',')]:
-                self.conf.set('users',defUsers+', '+index.dic[ImpraIndex.SEP_KEY_INTERN+'users'][k],'catg')        
+        self.importIndex(encData)
         rt.stop()
-        return index
+
+    def importIndex(self, encData):
+        self.index = ImpraIndex(self.conf.get('key','keys'),self.conf.get('mark','keys'), encData, self.getIndexDefaultCatg())
+        defUsers = self.conf.get('users','catg')
+        if not ImpraIndex.SEP_KEY_INTERN+'users' in self.index.dic:
+            self.index.dic[ImpraIndex.SEP_KEY_INTERN+'users'] = {}
+        for k in self.index.dic[ImpraIndex.SEP_KEY_INTERN+'users']:
+            if self.index.dic[ImpraIndex.SEP_KEY_INTERN+'users'][k] not in [ i.strip() for i in defUsers.split(',')]:
+                self.conf.set('users',defUsers+', '+self.index.dic[ImpraIndex.SEP_KEY_INTERN+'users'][k],'catg')
         
     def removeIndex(self):
         """"""
@@ -893,7 +906,7 @@ class ImpraStorage:
                         mprint()
                         #Clz.print(' index intall files checked\n', Clz.fgB2)
                     self._setIndexImap()
-                    self.index = self.getIndex(True)
+                    self.getIndex(True)
                     self.index.add(hlst['head'][3],label,hlst['head'][1],ext,ownerHash,catg,md5,bFlag,size,account)                        
                     done = self.saveIndex()    
                 
@@ -968,7 +981,7 @@ class ImpraStorage:
             self.ih.srv.expunge()
             sleep(0.5)
             self._setIndexImap()
-            self.index = self.getIndex(True)
+            self.getIndex(True)
             self.index.rem(key)
             done = self.saveIndex()
             rt.stop()
@@ -994,6 +1007,7 @@ class ImpraStorage:
             ck    = ConfigKey(row[ImpraIndex.HASH])
             hlst  = ck.getHashList(key,row[ImpraIndex.PARTS],True)
             ids   = self.ih.searchBySubject(hlst['head'][2],True)
+
             if len(ids) >= row[ImpraIndex.PARTS]:
 
                 for mid in ids :

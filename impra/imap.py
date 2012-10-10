@@ -173,15 +173,18 @@ class ImapHelper:
         if DEBUG.level <= DEBUG.ALL :
             mprint(status)
             mprint(resp)
-        self.rootBox = box
-        if boxBin is None :
-            if search('yahoo.com',conf.host) is not None :
-                self.BOX_BIN = 'Trash'
-        if box != None :
-            status, resp = self.srv.select(self.rootBox)
-            if status == self.KO :
-                self.createBox(self.rootBox)
-                self.srv.select(self.rootBox)
+        if status == self.OK:
+            self.rootBox = box
+            if boxBin is None :
+                if search('yahoo.com',conf.host) is not None :
+                    self.BOX_BIN = 'Trash'
+            if box != None :
+                status, resp = self.srv.select(self.rootBox)
+                if status == self.KO :
+                    self.createBox(self.rootBox)
+                    self.srv.select(self.rootBox)
+        else :
+            raise BadLoginException('cannot login with '+conf.user)
         rt.stop()
 
     def status(self,box='INBOX'):
@@ -382,6 +385,13 @@ class ImapHelper:
             mid = str(resp[0],'utf-8')[11:-(len(resp[0])-m.start())].split(' ')
         rt.stop()
         return mid
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~ class BadLoginException ~~
+
+class BadLoginException(BaseException):
+    pass
 
 if __name__ == '__main__':
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

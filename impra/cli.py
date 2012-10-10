@@ -35,7 +35,7 @@ import impra.crypt as crypt
 import impra.util  as util
 import impra.core  as core
 from   impra.util  import Clz, mprint
-
+from   time        import strftime
 
 LINE_SEP_LEN  = 120
 LINE_SEP_CHAR = '―'
@@ -243,7 +243,7 @@ class Cli:
 
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # ~~ data CMD ~~
-            elif not self.ini.isEmpty() and (a[0] == 'list' or a[0] == 'add' or a[0] == 'get' or a[0] == 'remove' or a[0] == 'search' or a[0] == 'edit'):
+            elif not self.ini.isEmpty() and (a[0] == 'list' or a[0] == 'add' or a[0] == 'get' or a[0] == 'remove' or a[0] == 'search' or a[0] == 'edit' or a[0] == 'export' or a[0] == 'import'):
 
                 o.active_profile = self.ini.get('profile')
                     
@@ -268,8 +268,7 @@ class Cli:
                         resp = input(' backup index ? (yes/no) ')
                         if resp.lower()=='yes':
                             encData = util.get_file_content(core.dirname(conf.ini.path)+core.sep+'.index')
-                            from time import strftime                            
-                            ipath   = core.dirname(conf.ini.path)+core.sep+strftime('%Y%M%d')+'-'+o.active_profile+'.index'
+                            ipath   = core.dirname(conf.ini.path)+core.sep+strftime('%Y%m%d%H%M%S')+'-'+o.active_profile+'.index'
                             with open(ipath, mode='w', encoding='utf-8') as o:
                                 o.write(encData)
                             Clz.print('\nindex backup in `',Clz.fgn7, False)
@@ -293,7 +292,40 @@ class Cli:
                             self.exit(1)
 
 
-                    if a[0]=='list':
+                    if a[0]=='export':
+                        if not impst.irefresh: impst.getIndex(True)
+                        encData  = impst.index.encrypt()
+                        ipath   = core.dirname(conf.ini.path)+core.sep+strftime('%Y%m%d%H%M%S')+'_'+o.active_profile+'.index'
+                        with open(ipath, mode='w', encoding='utf-8') as o:
+                            o.write(encData)
+                        mprint()
+                        Clz.print(' index saved as ', Clz.fgn7)
+                        Clz.print(' '+ipath, Clz.fgB2)
+                        mprint()
+
+                    if a[0]=='import':
+                        if not len(a)>1 : self.error_cmd('`'+a[0]+' need one argument',parser)
+                        else :
+                            vfile = a[1]
+                            if util.file_exists(vfile) :
+                                encData = util.get_file_content(vfile)
+                                try :
+                                    impst.importIndex(encData)
+                                    impst.saveIndex()
+                                    mprint('\n ',end='')
+                                    Clz.print(' == OK == ', Clz.bg2+Clz.fgb7)
+                                    mprint()
+                                except crypt.BadKeyException as e:
+                                    mprint()
+                                    Clz.print(' Error : BadKeyException', Clz.fgB1)
+                                    Clz.print(' Your profile key don\'t match the index', Clz.fgB1)
+                                    mprint()
+                            else :
+                                mprint()
+                                Clz.print(' file not found', Clz.fgB1)
+                                mprint()
+                
+                    elif a[0]=='list':
 
                         uid     = conf.get('uid' ,'index')
                         date    = conf.get('date','index')
@@ -338,7 +370,19 @@ class Cli:
                         if not len(a)>1 : self.error_cmd('`'+a[0]+' need at least one argument',parser)
                         else:
                             vfile = a[1]
-                            if util.file_exists(vfile) :
+                            if not util.file_exists(vfile) :
+                                if os.path.isdir(vfile):
+                                    for f in os.listdir(vfile):
+                                        if not os.path.isdir(f):
+                                            label, ext  = core.splitext(core.basename(f))
+                                            if o.category is None : o.category = ''
+                                            done = impst.addFile(vfile+core.sep+f,label,o.category)
+                                            if done :
+                                                mprint('\n ',end='')
+                                                Clz.print(' == OK == ', Clz.bg2+Clz.fgb7)
+                                                mprint()
+                                else : self.error_cmd('`'+a[1]+' is not a file or dir',parser)
+                            else:
                                 if not len(a)>2 :
                                     label, ext  = core.splitext(core.basename(vfile))
                                 else: label = a[2]
@@ -348,8 +392,7 @@ class Cli:
                                     mprint('\n ',end='')
                                     Clz.print(' == OK == ', Clz.bg2+Clz.fgb7)
                                     mprint()
-                                
-                            else : self.error_cmd('`'+a[1]+' is not a file',parser)
+                            
 
                     elif a[0] == 'edit':
                         if not len(a)>1 : self.error_cmd('`'+a[0]+' need an id',parser)
@@ -592,13 +635,10 @@ class Cli:
   
         Clz.print('  USAGE :\n', Clz.fgB3)
         Clz.print('    imprastorage ', Clz.fgb7, False)
-        if Clz.isUnix:
-            Clz.print('--help ', Clz.fgB3)
-        else:
-            Clz.print('help ', Clz.fgB3)
+        Clz.print('help ', Clz.fgB3)
                 
         Clz.print('    imprastorage ', Clz.fgb7, False)
-        Clz.print('add ', Clz.fgB3, False)
+        Clz.print('add '.ljust(8,' '), Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
         Clz.print('filePath', Clz.fgB1, False)
         Clz.print('} ', Clz.fgB1, False)
@@ -613,7 +653,7 @@ class Cli:
         Clz.print(']', Clz.fgB3)
 
         Clz.print('    imprastorage ', Clz.fgb7, False)
-        Clz.print('edit ', Clz.fgB3, False)
+        Clz.print('edit '.ljust(8,' '), Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
         Clz.print('id', Clz.fgB1, False)
         Clz.print('} ', Clz.fgB1, False)
@@ -629,13 +669,13 @@ class Cli:
         Clz.print(']', Clz.fgB3)
 
         Clz.print('    imprastorage ', Clz.fgb7, False)
-        Clz.print('get ', Clz.fgB3, False)
+        Clz.print('get '.ljust(8,' '), Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
         Clz.print('id|ids', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1)
 
         Clz.print('    imprastorage ', Clz.fgb7, False)
-        Clz.print('list ', Clz.fgB3, False)
+        Clz.print('list '.ljust(8,' '), Clz.fgB3, False)
         Clz.print('[', Clz.fgB3, False)
         Clz.print(' -c ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
@@ -654,13 +694,13 @@ class Cli:
         Clz.print(']', Clz.fgB3)
         
         Clz.print('    imprastorage ', Clz.fgb7, False)
-        Clz.print('remove ', Clz.fgB3, False)
+        Clz.print('remove '.ljust(8,' '), Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
         Clz.print('id', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1)
         
         Clz.print('    imprastorage ', Clz.fgb7, False)
-        Clz.print('search ', Clz.fgB3, False)
+        Clz.print('search '.ljust(8,' '), Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
         Clz.print('pattern', Clz.fgB1, False)
         Clz.print('} ', Clz.fgB1, False)
@@ -680,10 +720,19 @@ class Cli:
         Clz.print('colon', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
         Clz.print(']', Clz.fgB3)
+
+        Clz.print('    imprastorage ', Clz.fgb7, False)
+        Clz.print('export '.ljust(8,' '), Clz.fgB3)
+
+        Clz.print('    imprastorage ', Clz.fgb7, False)
+        Clz.print('import '.ljust(8,' '), Clz.fgB3, False)
+        Clz.print('{', Clz.fgB1, False)
+        Clz.print('filePath', Clz.fgB1, False)
+        Clz.print('} ', Clz.fgB1)
         
         Clz.print('    imprastorage ', Clz.fgb7, False)
-        Clz.print('conf', Clz.fgB3, False)        
-        Clz.print(' -L', Clz.fgB3, False)
+        Clz.print('conf '.ljust(8,' '), Clz.fgB3, False)        
+        Clz.print('-L', Clz.fgB3, False)
         Clz.print('|', Clz.fgB1, False)
         Clz.print('-V', Clz.fgB3, False)
         Clz.print('|', Clz.fgB1, False)
@@ -693,47 +742,47 @@ class Cli:
         Clz.print('}', Clz.fgB1)
 
         Clz.print('    imprastorage ', Clz.fgb7, False)
-        Clz.print('conf', Clz.fgB3, False)        
-        Clz.print(' -S ', Clz.fgB3, False)
+        Clz.print('conf '.ljust(8,' '), Clz.fgB3, False)        
+        Clz.print('-S ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
         Clz.print('profile', Clz.fgB1, False)
         Clz.print('} ', Clz.fgB1, False)
         Clz.print('[', Clz.fgB3, False)
         Clz.print(' -K', Clz.fgB3, False)
-        Clz.print(', -H ', Clz.fgB3, False)
+        Clz.print(' -H ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
         Clz.print('host', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
-        Clz.print(', -U ', Clz.fgB3, False)
+        Clz.print(' -U ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
         Clz.print('user', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
-        Clz.print(', -X ', Clz.fgB3, False)
+        Clz.print(' -X ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
         Clz.print('password', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
-        Clz.print(', -P ', Clz.fgB3, False)
+        Clz.print(' -P ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
         Clz.print('port', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
-        Clz.print(', -B ', Clz.fgB3, False)
+        Clz.print(' -B ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
         Clz.print('box', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
-        Clz.print(', -N ', Clz.fgB3, False)
+        Clz.print(' -N ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
         Clz.print('name', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
-        Clz.print(', \\', Clz.fgB3)
+        Clz.print(' \\', Clz.fgB3)
         
-        Clz.print(' '*37, Clz.fgb7, False)
+        Clz.print(' '*40, Clz.fgb7, False)
         Clz.print('-M ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
         Clz.print('user', Clz.fgB1, False)
         Clz.print('} {', Clz.fgB1, False)
         Clz.print('pass', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
-        Clz.print(', -R ', Clz.fgB3, False)
+        Clz.print(' -R ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
         Clz.print('user', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
@@ -749,6 +798,8 @@ class Cli:
         Clz.print(' '*50+'don\'t print status messages to stdout'   , Clz.fgB7)
         Clz.print(' '*4+'-d, --debug'                               , Clz.fgB3)
         Clz.print(' '*50+'set debug mode'                           , Clz.fgB7)
+        Clz.print(' '*4+'    --no-color'                            , Clz.fgB3)
+        Clz.print(' '*50+'disable color mode'                       , Clz.fgB7)
         mprint('\n')
         
         Clz.print('  COMMANDS OPTIONS :\n'                          , Clz.fgB3)
@@ -1056,7 +1107,24 @@ class Cli:
         Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
         Clz.print('search ', Clz.fgB3, False)
         Clz.print(CHQ+'old mountain$'+CHQ, Clz.fgB1)
-        
+
+
+        printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+        Clz.print('\n'+' '*4+'command export :', Clz.fgB3)        
+
+        Clz.print(' '*8+'# export the current index (as an encrypt file)',Clz.fgn7)
+        Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
+        Clz.print('export ', Clz.fgB3)
+
+
+        printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
+        Clz.print('\n'+' '*4+'command import :', Clz.fgB3)        
+
+        Clz.print(' '*8+'# import an index (build by export command)',Clz.fgn7)
+        Clz.print(' '*8+'# carreful with this command, current index will be unrecoverable',Clz.fgn7)
+        Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
+        Clz.print('import ', Clz.fgB3, False)
+        Clz.print(' 20121010222244_gmail.index', Clz.fgB1)
         
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
         Clz.print('\n'+' '*4+'command conf :', Clz.fgB3)
