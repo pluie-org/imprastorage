@@ -285,7 +285,10 @@ class ImpraIndex:
             self.id = 1
         else :
             self.dic = self.decrypt(encdata)
-            self.id = max([self.dic[k][self.UID] for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)])+1
+            l = [self.dic[k][self.UID] for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)]
+            if len(l) > 0 :
+                self.id = max(l)+1
+            else: self.id = 1
         for k in dicCategory :
             if k == "users" :
                 for k1 in dicCategory[k]:
@@ -425,18 +428,22 @@ class ImpraIndex:
         r = [k for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)]
         l = [(k,self.dic[k][self.UID]) for k in r]
         l2 = [k[1] for k in l]
-        mxid = max(l2)
-        import collections
-        l3 = [x for x, y in collections.Counter(l2).items() if y > 1]
-        d  = [k[0] for k in l if any( k[1] == v for v in l3)]
-        for k in d:
-            mxid += 1
-            print(self.dic[k])
-            t = list(self.dic[k])
-            t[self.UID] = mxid
-            print(t)
-            self.dic[k] = tuple(t)
-        self.id = mxid+1
+        if len(l2)> 0 :
+            mxid = max(l2)
+            import collections
+            l3 = [x for x, y in collections.Counter(l2).items() if y > 1]
+            d  = [k[0] for k in l if any( k[1] == v for v in l3)]
+            for k in d:
+                mxid += 1
+                print(self.dic[k])
+                t = list(self.dic[k])
+                t[self.UID] = mxid
+                print(t)
+                self.dic[k] = tuple(t)
+            self.id = mxid+1
+        else:
+            self.id = 1
+            d = ()
         rt.stop()
         return len(d)>0
 
@@ -711,8 +718,12 @@ class ImpraStorage:
         """"""
         from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, DEBUG_INFO
         rt = RuTime(eval(__CALLER__()),DEBUG_INFO)
-        if self.idx != None :
-            self.ih.delete(self.idx, True)
+        try:
+            if self.idx != None :
+                self.ih.delete(self.idx, True)
+        except Exception as e :
+            print('error : ')
+            print(e)            
         #~ if len(self.delids) > 0 :
             #~ for i in self.delids : self.ih.delete(i, True, False)
             #~ Clz.print('\n expunge, waiting server...\n', Clz.fgB1)
@@ -784,106 +795,111 @@ class ImpraStorage:
         self.switchFileAccount()       
 
         _, ext = splitext(path)
-        try:
-            size = getsize(path)
-            if size > 0 :
-                md5     = hash_sha256_file(path)
-                account = self.ih.conf.user
-                print()
-                Clz.print(' account : '       , Clz.fgn7, False)
-                Clz.print(account             , Clz.fgB7)
-                Clz.print(' file    : '       , Clz.fgn7, False)
-                Clz.print(path                , Clz.fgN1)
-                Clz.print(' hash    : '       , Clz.fgn7, False)                
-                Clz.print(md5                 , Clz.fgN2)
-                print()
-                if not self.index.get(md5) :
+        #~ try:
+        size = getsize(path)
+        if size > 0 :
+            md5     = hash_sha256_file(path)
+            account = self.ih.conf.user
+            print()
+            Clz.print(' account : '       , Clz.fgn7, False)
+            Clz.print(account             , Clz.fgB7)
+            Clz.print(' file    : '       , Clz.fgn7, False)
+            Clz.print(path                , Clz.fgN1)
+            Clz.print(' hash    : '       , Clz.fgn7, False)                
+            Clz.print(md5                 , Clz.fgN2)
+            print()
+            if not self.index.get(md5) :
+                
+                if catg=='' : catg = self.index.getAutoCatg(ext)
+                
+                bFlag = ImpraIndex.FILE_BINARY
+                if not is_binary(path): 
+                    bFlag = ImpraIndex.FILE_CRYPT
+                    path  = self.encryptTextFile(path)
                     
-                    if catg=='' : catg = self.index.getAutoCatg(ext)
-                    
-                    bFlag = ImpraIndex.FILE_BINARY
-                    if not is_binary(path): 
-                        bFlag = ImpraIndex.FILE_CRYPT
-                        path  = self.encryptTextFile(path)
-                        
-                    hlst = self.fsplit.addFile(path,md5)
-                    if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : 
-                        print(hlst['head'])
-                        for v in hlst['data']:
-                            print(v)
-                    
-                    usr = self.conf.get('name','infos')
-                    ownerHash = self.mb.getHashName(usr)
-                    self.index.addUser(usr,ownerHash)
-                    
-                    cancel  = False
-                    sendIds = []
-                    test    = True
-                    for row in hlst['data'] :
-                        msg  = self.mb.build(usr,'all',hlst['head'][2],self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
-                        mid  = self.ih.send(msg.as_string(), self.rootBox)
-                        if mid is not None :
-                            # dont remove
-                            status, resp = self.ih.fetch(mid[1],'(UID BODYSTRUCTURE)', True)
-                            if status == self.ih.OK:
-                                sendIds.append((mid[1],row))
-                                print(' ',end='')
-                                Clz.print('part '        , Clz.fgn7, False)
-                                Clz.print(str(row[0])    , Clz.fgB2, False)
-                                Clz.print(' sent as msg ', Clz.fgn7, False)
-                                Clz.print(str(mid[1])    , Clz.fgB1)
-                            else:
-                                print('\n-- error occured when sending part : %s\n-- retrying' % row[0])
+                hlst = self.fsplit.addFile(path,md5)
+                if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : 
+                    print(hlst['head'])
+                    for v in hlst['data']:
+                        print(v)
+                
+                usr = self.conf.get('name','infos')
+                ownerHash = self.mb.getHashName(usr)
+                self.index.addUser(usr,ownerHash)
+                
+                cancel  = False
+                sendIds = []
+                test    = True
+                for row in hlst['data'] :
+                    msg  = self.mb.build(usr,'all',hlst['head'][2],self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
+                    mid  = self.ih.send(msg.as_string(), self.rootBox)
+                    if mid is not None :
+                        #sleep(0.5)
+                        # dont remove
+                        status, resp = self.ih.fetch(mid[1],'(UID BODYSTRUCTURE)', True)
+                        if status == self.ih.OK:
+                            sendIds.append((mid[1],row))
+                            print(' ',end='')
+                            Clz.print('part '        , Clz.fgn7, False)
+                            Clz.print(str(row[0])    , Clz.fgB2, False)
+                            Clz.print(' sent as msg ', Clz.fgn7, False)
+                            Clz.print(str(mid[1])    , Clz.fgB1)
+                        else:
+                            print('\n-- error occured when sending part : %s\n-- retrying' % row[0])
 
-                    if not cancel :
+                if not cancel :
 
-                        diff = self.checkSendIds(sendIds,hlst['head'][2])
+                    diff = self.checkSendIds(sendIds,hlst['head'][2])
+                    #~ print('diff')
+                    #~ for mid in diff :
+                        #~ if mid > 0:
+                            #~ print(mid)
+                            #self.ih.delete(str(mid), True, False)
+                    if len(diff) > 0 :                        
                         for mid in diff :
-                            if mid > 0:
-                                print(mid)
-                                #self.ih.delete(str(mid), True, False)
-                        if len(diff) > 0 :
-                            Clz.print(' error when sending, missing parts :', Clz.fgB1)
-                            for mid in diff :
+                            status, resp = self.ih.fetch(str(mid),'(UID BODYSTRUCTURE)', True)
+                            if not status == self.ih.OK:
+                                Clz.print(' error when sending, missing parts :', Clz.fgB1)
                                 # bugfix mid would be without +1
                                 k = [ k for k in sendIds if len(k)>0 and int(k[0]) == int(mid+1)]
                                 if len(k) > 0 :
+                                    print(k)
                                     row = k[0][1]
                                     msg  = self.mb.build(usr,'all',hlst['head'][2],self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
                                     Clz.print(' resending part '      , Clz.fgn7, False)
                                     Clz.print(str(row[0])             , Clz.fgN2)
                                     mid  = self.ih.send(msg.as_string(), self.rootBox)
-                        else :
-                            print()
-                            #Clz.print(' index intall files checked\n', Clz.fgB2)
-                        self._setIndexImap()
-                        self.index = self.getIndex(True)
-                        self.index.add(hlst['head'][3],label,hlst['head'][1],ext,ownerHash,catg,md5,bFlag,size,account)                        
-                        done = self.saveIndex()    
-                    
-                    else : 
-                        # clean 
-                        for mid, row in sendIds :
-                            if cancel : self.ih.delete(mid, True)
-                            if file_exists(self.fsplit.DIR_OUTBOX+row[1]+'.ipr') : remove(self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
-                        self.clean()
+                    else :
+                        print()
+                        #Clz.print(' index intall files checked\n', Clz.fgB2)
+                    self._setIndexImap()
+                    self.index = self.getIndex(True)
+                    self.index.add(hlst['head'][3],label,hlst['head'][1],ext,ownerHash,catg,md5,bFlag,size,account)                        
+                    done = self.saveIndex()    
+                
+                else : 
+                    # clean 
+                    for mid, row in sendIds :
+                        if cancel : self.ih.delete(mid, True)
+                        if file_exists(self.fsplit.DIR_OUTBOX+row[1]+'.ipr') : remove(self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
+                    self.clean()
 
-                else :
-                    print(' ',end='')
-                    Clz.print(' == file already exist on server as '    , Clz.fgN7+Clz.bg1, False)
-                    Clz.print(self.index.dic[md5][ImpraIndex.LABEL]     , Clz.bg1+Clz.fgB3, False)
-                    Clz.print(' [id:'                                   , Clz.fgN7+Clz.bg1, False)
-                    Clz.print(str(self.index.dic[md5][ImpraIndex.UID])  , Clz.bg1+Clz.fgB3, False)
-                    Clz.print('] == '                                   , Clz.fgN7+Clz.bg1)
-                    print()
             else :
                 print(' ',end='')
-                Clz.print(' == files is empty or don\t exists == ' , Clz.bg1+Clz.fgN7)
+                Clz.print(' == file already exist on server as '    , Clz.fgN7+Clz.bg1, False)
+                Clz.print(self.index.dic[md5][ImpraIndex.LABEL]     , Clz.bg1+Clz.fgB3, False)
+                Clz.print(' [id:'                                   , Clz.fgN7+Clz.bg1, False)
+                Clz.print(str(self.index.dic[md5][ImpraIndex.UID])  , Clz.bg1+Clz.fgB3, False)
+                Clz.print('] == '                                   , Clz.fgN7+Clz.bg1)
                 print()
+        else :
+            print(' ',end='')
+            Clz.print(' == files is empty or don\t exists == ' , Clz.bg1+Clz.fgN7)
+            print()
                 
-        except Exception as e :
-            print('Erroreuh')
-            print(e)
+        #~ except Exception as e :
+            #~ print('Erroreuh')
+            #~ print(e)
         self._setIndexImap()
         rt.stop()
         return done

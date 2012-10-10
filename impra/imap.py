@@ -164,17 +164,21 @@ class ImapHelper:
     BOX_BIN      = '[Gmail]/Corbeille'
     """"""
 
-    def __init__(self, conf, box='INBOX'):
+    def __init__(self, conf, box='INBOX', boxBin=None):
         """"""
-        rt = RuTime(eval(__CALLER__('conf,"'+box+'"')))
+        rt = RuTime(eval(__CALLER__('conf,"'+str(box)+'"')))
         self.srv = IMAP4_SSL(conf.host,conf.port)
         self.conf = conf
-        self.srv.login(conf.user,conf.pwd)
+        status, resp = self.srv.login(conf.user,conf.pwd)
         self.rootBox = box
-        status, resp = self.srv.select(self.rootBox)
-        if status == self.KO :
-            self.createBox(self.rootBox)
-            self.srv.select(self.rootBox)
+        if boxBin is None :
+            if search('yahoo.com',conf.host) is not None :
+                self.BOX_BIN = 'Trash'
+        if box != None :
+            status, resp = self.srv.select(self.rootBox)
+            if status == self.KO :
+                self.createBox(self.rootBox)
+                self.srv.select(self.rootBox)
         rt.stop()
 
     def status(self,box='INBOX'):
@@ -313,7 +317,7 @@ class ImapHelper:
                 #~ print(type(mid))
                 #~ print(mid)
                 #status, resp = self.srv.store(mid, '+FLAGS', '\\Deleted')
-                status, resp = self.srv.uid('store', mid, '+FLAGS', '\\Deleted' )
+                status, resp = self.srv.uid('store', mid, '+FLAGS (\\Deleted)' )
                 print(' ',end='')
                 Clz.print(' deleting msg ',Clz.fgN7+Clz.bg1, False)
                 Clz.print(str(int(mid))   ,Clz.bg1+Clz.fgB3)
@@ -331,9 +335,9 @@ class ImapHelper:
         status = None
         if int(mid) > 0 :
             if byUid:
-                status, resp = self.srv.uid( 'store', mid, '+FLAGS', '\\Deleted' )
+                status, resp = self.srv.uid( 'store', mid, '+FLAGS (\\Deleted)' )
             else :
-                status, resp = self.srv.store(mid, '+FLAGS', '\\Deleted')
+                status, resp = self.srv.store(mid, '+FLAGS', 'Deleted')
             Clz.print(' flag msg ' , Clz.fgn7, False)
             Clz.print(str(int(mid)), Clz.fgB1, False)
             Clz.print(' as deleted', Clz.fgn7)
@@ -373,7 +377,8 @@ class ImapHelper:
             if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE:
                 print(status)
                 print(resp)
-            mid = str(resp[0],'utf-8')[11:-11].split(' ')
+            m = search(b']', resp[0])
+            mid = str(resp[0],'utf-8')[11:-(len(resp[0])-m.start())].split(' ')
         rt.stop()
         return mid
 

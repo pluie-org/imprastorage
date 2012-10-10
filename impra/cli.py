@@ -711,11 +711,18 @@ class Cli:
         Clz.print('{', Clz.fgB1, False)
         Clz.print('name', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
-        Clz.print(', -M ', Clz.fgB3, False)
+        Clz.print(', \\', Clz.fgB3)
+        
+        Clz.print(' '*37, Clz.fgb7, False)
+        Clz.print('-M ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
-        Clz.print('name', Clz.fgB1, False)
+        Clz.print('user', Clz.fgB1, False)
         Clz.print('} {', Clz.fgB1, False)
         Clz.print('pass', Clz.fgB1, False)
+        Clz.print('}', Clz.fgB1, False)
+        Clz.print(', -R ', Clz.fgB3, False)
+        Clz.print('{', Clz.fgB1, False)
+        Clz.print('user', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
         Clz.print(' ]', Clz.fgB3)
     
@@ -784,7 +791,7 @@ class Cli:
         
         Clz.print(' '*4+'-S '                                       , Clz.fgB3, False)
         Clz.print('PROFILE'.ljust(10,' ')                           , Clz.fgB1, False)
-        Clz.print(', --order'.ljust(18,' ')                         , Clz.fgB3, False)
+        Clz.print(', --save'.ljust(18,' ')                          , Clz.fgB3, False)
         Clz.print('PROFILE'.ljust(10,' ')                           , Clz.fgB1)
         Clz.print(' '*50+'save the specified profile'               , Clz.fgB7)
 
@@ -830,8 +837,19 @@ class Cli:
         Clz.print('BOXNAME'.ljust(10,' ')                           , Clz.fgB1, False)
         Clz.print(', --set-box'.ljust(18,' ')                       , Clz.fgB3, False)
         Clz.print('BOXNAME'.ljust(10,' ')                           , Clz.fgB1)
-        
         Clz.print(' '*50+'set imap boxname (default:__impra__)'     , Clz.fgB7)
+        
+        Clz.print(' '*4+'-M '                                       , Clz.fgB3, False)
+        Clz.print('USER PASS'.ljust(10,' ')                         , Clz.fgB1, False)
+        Clz.print(', --set-multi'.ljust(18,' ')                     , Clz.fgB3, False)
+        Clz.print('USER PASS'.ljust(10,' ')                         , Clz.fgB1)        
+        Clz.print(' '*50+'add imap multi account'                   , Clz.fgB7)
+
+        Clz.print(' '*4+'-R '                                       , Clz.fgB3, False)
+        Clz.print('USER'.ljust(10,' ')                              , Clz.fgB1, False)
+        Clz.print(', --remove-multi'.ljust(18,' ')                  , Clz.fgB3, False)
+        Clz.print('USER'.ljust(10,' ')                              , Clz.fgB1)        
+        Clz.print(' '*50+'remove imap multi account'                , Clz.fgB7)
         
         print('\n')    
 
@@ -1060,10 +1078,11 @@ class Cli:
         Clz.print('-L ', Clz.fgB3, False)
         Clz.print('bobimap ', Clz.fgB1)
 
-        Clz.print(' '*8+'# view config current profile',Clz.fgn7)
+        Clz.print(' '*8+'# list all config profile',Clz.fgn7)
         Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
         Clz.print('conf ', Clz.fgB3, False)
-        Clz.print('-V', Clz.fgB3)
+        Clz.print('-V ', Clz.fgB3, False)
+        Clz.print('all ', Clz.fgB1)
 
         Clz.print(' '*8+'# view config profile bobgmail (current profile doesn\'t change)',Clz.fgn7)
         Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
@@ -1071,19 +1090,29 @@ class Cli:
         Clz.print('-V ', Clz.fgB3, False)
         Clz.print('bobgmail ', Clz.fgB1)
         
-        Clz.print(' '*8+'# generate a new Key for current profile (carreful with this command if your account has no empty index - ',Clz.fgn7)
-        Clz.print(' '*8+'# all files will be unrecoverable without the appropriate key)',Clz.fgn7)
-        Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
-        Clz.print('conf ', Clz.fgB3, False)
-        Clz.print('-S -K', Clz.fgB3)
-        
         Clz.print(' '*8+'# generate a new Key for profile bobgmail and set it as current profile (carreful with this command ',Clz.fgn7)
         Clz.print(' '*8+'# if your account has no empty index - all files will be unrecoverable without the appropriate key)',Clz.fgn7)
         Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
         Clz.print('conf ', Clz.fgB3, False)
         Clz.print('-S ', Clz.fgB3, False)
         Clz.print('bobgmail ', Clz.fgB1, False)
-        Clz.print('-K', Clz.fgB3)
+        Clz.print('-K ', Clz.fgB3)
+        
+        Clz.print(' '*8+'# add multi account to profile bobgmail (accounts must be on same host)',Clz.fgn7)
+        Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
+        Clz.print('conf ', Clz.fgB3, False)
+        Clz.print('-S ', Clz.fgB3, False)
+        Clz.print('bobgmail ', Clz.fgB1, False)
+        Clz.print('-M ', Clz.fgB3, False)
+        Clz.print('bob23 passbob23', Clz.fgB1)
+        
+        Clz.print(' '*8+'# remove multi account to profile bobgmail',Clz.fgn7)
+        Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
+        Clz.print('conf ', Clz.fgB3, False)
+        Clz.print('-S ', Clz.fgB3, False)
+        Clz.print('bobgmail ', Clz.fgB1, False)
+        Clz.print('-R ', Clz.fgB3, False)
+        Clz.print('bob23', Clz.fgB1)
 
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
         print()
