@@ -44,14 +44,22 @@ import platform
 #~ from sys.stdout import isatty
 from time       import time
 
-DEBUG_ALL    = 0
-DEBUG_WARN   = 1
-DEBUG_NOTICE = 2
-DEBUG_INFO   = 3
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~ class Debug ~~
+class Debug:
+    
+    ALL    = 0
+    WARN   = 1
+    NOTICE = 2
+    INFO   = 3
+    
+    def __init__(self, active=True, level=3):
+        """"""
+        self.active = active
+        self.level  = level
 
-DEBUG       = True
-DEBUG_LEVEL = DEBUG_INFO
-COLOR_MODE  = True
+COLOR_MODE = True
+DEBUG      = Debug(True,Debug.INFO) 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~ methods ~~
@@ -169,7 +177,7 @@ def run(cmdline):
         cmdout, cmderr =  p.communicate()
         rcode = p.wait()
         if rcode < 0:
-            print((stderr,"Child was terminated by signal",rcode))
+            mprint((stderr,"Child was terminated by signal",rcode))
         else:
             return (rcode,cmdout,cmderr)
     except OSError as e :
@@ -184,16 +192,22 @@ def __CALLER__(args=''):
         
     :Returns: `str`
     """
-    global DEBUG_LEVEL, DEBUG, DEBUG_WARN
+    #global DEBUG_LEVEL, DEBUG, DEBUG_WARN
     val = "self.__class__.__name__+'.%s' % stack()[1][3]+'("+quote_escape(args)+") "
-    if DEBUG and DEBUG_LEVEL<=DEBUG_WARN : val += "l:'+str(stack()[1][2])+' ' "
+    if DEBUG.active and DEBUG.level<=DEBUG.WARN : val += "l:'+str(stack()[1][2])+' ' "
     else: val += "'"
     return val
 
-if platform.system() == 'Windows' :
-    clear  = lambda: system('cls')
-else : clear = lambda: system('clear')
+def mprint(d='',end='\n'):
+    if DEBUG.active : print(d,end=end)
 
+if platform.system() == 'Windows' :
+    SYS_CLEAR = 'cls'
+else :
+    SYS_CLEAR = 'clear'
+clear = lambda: system(SYS_CLEAR)
+
+   
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~ class RuTime ~~
@@ -201,11 +215,10 @@ else : clear = lambda: system('clear')
 class RuTime:
     """Give basics time stats"""    
     
-    def __init__(self,label,lvl=DEBUG_NOTICE):
+    def __init__(self,label,lvl=DEBUG.NOTICE):
         """Initialize duration with appropriate label"""
-        from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_INFO
-        self.debug      = DEBUG and DEBUG_LEVEL <= lvl
-        self.debugStart = self.debug and lvl < DEBUG_INFO
+        self.debug      = DEBUG.active and DEBUG.level <= lvl
+        self.debugStart = self.debug and lvl < DEBUG.INFO
         self.lvl        = lvl
         self.label      = label
         self._start()
@@ -334,7 +347,7 @@ class IniFile:
                 if s!='main':
                     #~ if section=='*': content += '\n['+s+']\n'
                     #~ else : content += '\n['+s[len(section)+1:]+']\n'
-                    print()
+                    mprint()
                     if not withoutSectionName : 
                         Clz.print('['+s+']', Clz.fgB3)
                     else: Clz.print('['+s.split('.')[1]+']', Clz.fgB3)
@@ -483,19 +496,20 @@ class Coloriz:
 
     def print(self,data,colors,endLF=True,endClz=True):
         """"""
-        if not endLF : ev = ''
-        else: ev = self._LF
-        if self.active : 
-            tokens = [c.lstrip(self._MARKER[0]).rstrip(self._SEP) for c in colors.split(self._MARKER) if c is not '']
-            if self.isUnix :
-                if endClz : data += self._uOFF
-                print(eval('self._u'+'+self._u'.join(tokens))+data,end=ev)
-            else :
-                self.setColor(eval('self._w'+'|self._w'.join(tokens)))
-                print(data,end=ev)
-                stdout.flush()
-                if endClz : self.setColor(self._wOFF)
-        else: 
-            print(data,end=ev)
+        if DEBUG.active:
+            if not endLF : ev = ''
+            else: ev = self._LF
+            if self.active : 
+                tokens = [c.lstrip(self._MARKER[0]).rstrip(self._SEP) for c in colors.split(self._MARKER) if c is not '']
+                if self.isUnix :
+                    if endClz : data += self._uOFF
+                    mprint(eval('self._u'+'+self._u'.join(tokens))+data,end=ev)
+                else :
+                    self.setColor(eval('self._w'+'|self._w'.join(tokens)))
+                    mprint(data,end=ev)
+                    stdout.flush()
+                    if endClz : self.setColor(self._wOFF)
+            else: 
+                mprint(data,end=ev)
 
 Clz = Coloriz()

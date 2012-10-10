@@ -46,7 +46,7 @@ from os.path              import abspath, dirname, join, realpath, basename, get
 from re                   import split as regsplit, match as regmatch, compile as regcompile, search as regsearch
 from time                 import time, sleep
 from impra.imap           import ImapHelper, ImapConfig
-from impra.util           import __CALLER__, RuTime, formatBytes, randomFrom, bstr, quote_escape, stack, run, file_exists, get_file_content, DEBUG, DEBUG_ALL, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, mkdir_p, is_binary, clear, Clz
+from impra.util           import __CALLER__, RuTime, formatBytes, randomFrom, bstr, quote_escape, stack, run, file_exists, get_file_content, DEBUG, mkdir_p, is_binary, clear, Clz, mprint
 from impra.crypt          import Kirmah, ConfigKey, Noiser, Randomiz, hash_sha256, hash_md5_file, BadKeyException, hash_sha256_file
 
 
@@ -58,12 +58,14 @@ class FSplitter :
     
     def __init__(self, ck, wkdir='./'):
         """"""
+        rt    = RuTime(eval(__CALLER__()))
         self.ck         = ck
         self.wkdir      = wkdir
         self.DIR_CACHE  = join(self.wkdir,'.cache')+sep
         self.DIR_INBOX  = join(self.wkdir,'inbox')+sep
         self.DIR_OUTBOX = join(self.wkdir,'outbox')+sep
         self.DIR_DEPLOY = join(self.wkdir,'deploy')+sep
+        rt.stop()
     
     def addFile(self, fromPath, label, fixCount = False):
         """"""
@@ -87,8 +89,7 @@ class FSplitter :
 
     def _split(self, fromPath, hlst):
         """"""
-        from impra.util import DEBUG_NOTICE, DEBUG, DEBUG_LEVEL, DEBUG_INFO
-        rt = RuTime(eval(__CALLER__()),DEBUG_INFO)
+        rt = RuTime(eval(__CALLER__()),DEBUG.INFO)
         f = open(fromPath, 'rb+')
         m = mmap(f.fileno(), 0)
         p = 0
@@ -112,8 +113,8 @@ class FSplitter :
         """"""
         rt = RuTime(eval(__CALLER__('mmap,%s,%s,phlist' % (part,size))))
         with open(self.DIR_OUTBOX+phlst[1]+'.ipr', mode='wb') as o:
-            #~ print(self.DIR_OUTBOX+phlst[1]+'.ipr')
-            #~ print(str(phlst[2])+' - '+str(size)+' - '+str(phlst[3])+' = '+str(phlst[2]+size+phlst[3]))
+            #~ mprint(self.DIR_OUTBOX+phlst[1]+'.ipr')
+            #~ mprint(str(phlst[2])+' - '+str(size)+' - '+str(phlst[3])+' = '+str(phlst[2]+size+phlst[3]))
             o.write(self.ck.noiser.getNoise(phlst[2])+mmap.read(size)+self.ck.noiser.getNoise(phlst[3]))
             
         rt.stop()
@@ -130,7 +131,7 @@ class FSplitter :
         else: dirPath = self.DIR_DEPLOY
         
         filePath = dirPath+fileName
-        if file_exists(filePath+ext):            
+        if file_exists(filePath+ext):
             Clz.print('\n name already exist, deploying file as :' , Clz.fgB1)
             Clz.print(' '+basename(filePath)                       , Clz.fgB2, False)
             Clz.print('-'+str(uid)                                 , Clz.fgB1, False)
@@ -278,6 +279,7 @@ class ImpraIndex:
                 initial content of the index encrypted with Kirmah Algorythm 
                 and representing a dic index as json string
         """
+        rt    = RuTime(eval(__CALLER__()))
         self.km   = Kirmah(key, mark)
         self.dic  = {}        
         if encdata =='' :
@@ -298,15 +300,18 @@ class ImpraIndex:
             else :
                 if not self.SEP_KEY_INTERN+k in self.dic:
                     self.dic[self.SEP_KEY_INTERN+k] = dicCategory[k]
+        rt.stop()
 
     def add(self,key, label, count, ext='', usr='', cat='', md5='', bFlag='b', size='', account=''):
         """Add an entry to the index
         """
+        rt    = RuTime(eval(__CALLER__()))
         if self.get(md5) == None : 
             self.dic[md5] = (key,label,count,ext,usr,cat,self.id,bFlag,size,account)
             self.id +=1
         else : 
-            print(label+' already exist')
+            mprint(label+' already exist')
+        rt.stop()
 
     def addUser(self, nameFrom, hashName):
         """"""
@@ -371,6 +376,7 @@ class ImpraIndex:
         """Get the corresponding key in the index
         :Returns: `tuple` row
         """
+        rt    = RuTime(eval(__CALLER__()))
         done = False
         row  = self.dic[key]
         r    = list(row)
@@ -380,6 +386,7 @@ class ImpraIndex:
             r[self.CATG] = category
         self.dic[key] = tuple(r)
         done = row != self.dic[key]
+        rt.stop()
         return done
         
     def getById(self,sid):
@@ -395,14 +402,17 @@ class ImpraIndex:
 
     def fixAccount(self,account):
         """"""
+        rt    = RuTime(eval(__CALLER__()))
         r = [k for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)]
         for k in r:
             t = list(self.dic[k])
             t[self.ACCOUNT] = account
             self.dic[k] = tuple(t)
+        rt.stop()
 
     def getLightestAccount(self,l):
         """"""
+        rt    = RuTime(eval(__CALLER__()))
         r = [k for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)]
         t = {}
         for k in r:
@@ -418,6 +428,7 @@ class ImpraIndex:
         if account is None :
             d = sorted(r, reverse=False, key=lambda lst:lst[0])
             account = d[0][1]
+        rt.stop()
         return account
 
     def fixDuplicateIds(self):
@@ -435,10 +446,10 @@ class ImpraIndex:
             d  = [k[0] for k in l if any( k[1] == v for v in l3)]
             for k in d:
                 mxid += 1
-                print(self.dic[k])
+                #mprint(self.dic[k])
                 t = list(self.dic[k])
                 t[self.UID] = mxid
-                print(t)
+                #mprint(t)
                 self.dic[k] = tuple(t)
             self.id = mxid+1
         else:
@@ -502,14 +513,14 @@ class ImpraIndex:
 
     def encrypt(self):
         """"""
-        #~ print('encrypting index :')
+        #~ mprint('encrypting index :')
         jdata = jdumps(self.dic)
-        #~ print(jdata)
+        #~ mprint(jdata)
         return self.km.encrypt(jdata,'.index',22)
 
     def decrypt(self,data):
         """"""
-        #~ print('decrypting index : ')
+        #~ mprint('decrypting index : ')
         try :
             jdata = self.km.decrypt(data,'.index',22)
             data  = jloads(jdata)
@@ -532,18 +543,20 @@ class ImpraIndex:
         if sizeid < 3 : sizeid = 3
         sizeid = 3
         addsize = abs(3 - sizeid); 
+
         Clz.print(' ID'+' '*(1+addsize), Clz.BG4+Clz.fgB7, False, False)
-        print('HASH'  +' '*6 , end='')
-        print('LABEL' +' '*(35), end='')
-        print('SIZE'  +' '*5 , end='')
-        print('PART'  +' '*2 , end='')
-        print('TYPE'  +' '*2 , end='')
-        print('USER'  +' '*11, end='')
-        print('CATEGORY'+' '*(22-addsize))
-        #print('CATEGORY'+' '*(22-addsize), end='')
+        mprint('HASH'  +' '*6 , end='')
+        mprint('LABEL' +' '*(35), end='')
+        mprint('SIZE'  +' '*5 , end='')
+        mprint('PART'  +' '*2 , end='')
+        mprint('TYPE'  +' '*2 , end='')
+        mprint('USER'  +' '*11, end='')
+        mprint('CATEGORY'+' '*(22-addsize))
+        #mprint('CATEGORY'+' '*(22-addsize), end='')
         #Clz.print('ACCOUNT'+' '*(3), Clz.BG4+Clz.fgB7)
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)        
-        
+        dbg = DEBUG.active
+        DEBUG.active = True        
         a = ''
         tsize = 0
         psize = 0
@@ -566,11 +579,12 @@ class ImpraIndex:
                     #~ if v[self.ACCOUNT] in acc :
                         #~ acc[v[self.ACCOUNT]] += int(v[self.SIZE])
                     #~ else : acc[v[self.ACCOUNT]] = int(v[self.SIZE])
-                #~ else: print()
+                #~ else: mprint()
                 psize += int(v[self.SIZE])
             tsize += int(v[self.SIZE])
         if len(d)==0:
             Clz.print(' empty', Clz.fgB1)
+        DEBUG.active = dbg
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
         c = Clz.fgB2
         if psize != tsize : c = Clz.fgB7
@@ -579,7 +593,7 @@ class ImpraIndex:
         if psize != tsize :
             Clz.print(' / ', Clz.fgB3, False)
             Clz.print(formatBytes(int(tsize)), Clz.fgB2, False)
-        print()
+        mprint()
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
         #~ Clz.print(' '*4+'[', Clz.fgB7, False)
         #~ sep = ''
@@ -590,7 +604,8 @@ class ImpraIndex:
                 #~ Clz.print(formatBytes(acc[k]),Clz.fgB2,False)
                 #~ if sep=='':sep = ','
         #~ Clz.print(']', Clz.fgB7, False)
-        #~ print()
+        #~ mprint()
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~ class ImpraStorage ~~
@@ -600,8 +615,7 @@ class ImpraStorage:
     
     def __init__(self, conf, remIndex=False, wkdir=None):
         """"""
-        from impra.util import DEBUG_INFO
-        rt = RuTime(eval(__CALLER__()),DEBUG_INFO)
+        rt = RuTime(eval(__CALLER__()),DEBUG.INFO)
         if wkdir == None : wkdir = abspath(join(dirname( __file__ ), '..', 'wk'))
         self.wkdir   = wkdir
         self.conf    = conf
@@ -625,9 +639,9 @@ class ImpraStorage:
             if self.ih is None or self.ih.conf.user != iconf.user :
                 self.ih  = ImapHelper(iconf,self.rootBox)
         except Exception as e:
-            print('Error :')
-            print(e)
-            print('check your connection or your imap config')
+            mprint('Error :')
+            mprint(e)
+            mprint('check your connection or your imap config')
 
     def _getIdIndex(self):
         """"""
@@ -669,8 +683,7 @@ class ImpraStorage:
 
     def getIndex(self, forceRefresh=False):
         """"""
-        from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_WARN, DEBUG_INFO       
-        rt = RuTime(eval(__CALLER__()),DEBUG_INFO)
+        rt = RuTime(eval(__CALLER__()),DEBUG.INFO)
         index   = None
         encData = ''
         uid     = self.conf.get('uid'  ,'index')
@@ -706,6 +719,7 @@ class ImpraStorage:
         
     def removeIndex(self):
         """"""
+        rt    = RuTime(eval(__CALLER__()))
         self._getIdIndex()
         if self.idx :
             self.ih.delete(self.idx, True)
@@ -713,17 +727,17 @@ class ImpraStorage:
         self.conf.rem('*','index')        
         self.idx = None
         remove(self.pathInd)
+        rt.stop()
 
     def saveIndex(self):
         """"""
-        from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, DEBUG_INFO
-        rt = RuTime(eval(__CALLER__()),DEBUG_INFO)
+        rt = RuTime(eval(__CALLER__()),DEBUG.INFO)
         try:
             if self.idx != None :
                 self.ih.delete(self.idx, True)
         except Exception as e :
-            print('error : ')
-            print(e)            
+            mprint('error : ')
+            mprint(e)            
         #~ if len(self.delids) > 0 :
             #~ for i in self.delids : self.ih.delete(i, True, False)
             #~ Clz.print('\n expunge, waiting server...\n', Clz.fgB1)
@@ -732,7 +746,7 @@ class ImpraStorage:
         self.index.fixDuplicateIds()
         encData  = self.index.encrypt() 
         msgIndex = self.mb.buildIndex(encData)        
-        if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : print(msgIndex.as_string())
+        if DEBUG.level <= DEBUG.NOTICE : mprint(msgIndex.as_string())
         ids = self.ih.send(msgIndex.as_string(), self.rootBox)
         date = self.ih.headerField('date', ids[1], True)
         self.conf.set('uid',ids[1],'index')
@@ -746,16 +760,20 @@ class ImpraStorage:
     
     def encryptTextFile(self,path):
         """"""
+        rt    = RuTime(eval(__CALLER__()))
         cdata = self.index.km.subenc(get_file_content(path))
         with open(self.fsplit.DIR_CACHE+'.~KirmahEnc', mode='w') as o:
             o.write(cdata)
+        rt.stop()
         return self.fsplit.DIR_CACHE+'.~KirmahEnc'
         
     def decryptTextFile(self,path):
         """"""
+        rt    = RuTime(eval(__CALLER__()))
         data  = self.index.km.subdec(get_file_content(path))
         with open(path, mode='w') as o:
-            o.write(data)            
+            o.write(data)
+        rt.stop()
     
     def checkSendIds(self,sendIds,subject):
         """"""
@@ -765,6 +783,7 @@ class ImpraStorage:
     
     def switchFileAccount(self,account=None):
         """"""
+        rt    = RuTime(eval(__CALLER__()))
         al = self.conf.get('multi','imap')
         if al is not None :
             al    = eval(al)
@@ -782,15 +801,15 @@ class ImpraStorage:
                             iconf.pwd  = al[account]                    
                         self.ih = ImapHelper(iconf,self.rootBox)
                     except Exception as e:
-                        print('Error : ')
-                        print(e)
-                        print('check your connection or your imap config for account '+iconf.user+' : '+iconf.password)
+                        mprint('Error : ')
+                        mprint(e)
+                        mprint('check your connection or your imap config for account '+iconf.user+' : '+iconf.password)
+        rt.stop()
     
     def addFile(self, path, label, catg=''):
         """"""
         done = False
-        from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, DEBUG_INFO
-        rt = RuTime(eval(__CALLER__()),DEBUG_INFO)
+        rt = RuTime(eval(__CALLER__()),DEBUG.INFO)
      
         self.switchFileAccount()       
 
@@ -800,14 +819,14 @@ class ImpraStorage:
         if size > 0 :
             md5     = hash_sha256_file(path)
             account = self.ih.conf.user
-            print()
+            mprint()
             Clz.print(' account : '       , Clz.fgn7, False)
             Clz.print(account             , Clz.fgB7)
             Clz.print(' file    : '       , Clz.fgn7, False)
             Clz.print(path                , Clz.fgN1)
             Clz.print(' hash    : '       , Clz.fgn7, False)                
             Clz.print(md5                 , Clz.fgN2)
-            print()
+            mprint()
             if not self.index.get(md5) :
                 
                 if catg=='' : catg = self.index.getAutoCatg(ext)
@@ -818,10 +837,10 @@ class ImpraStorage:
                     path  = self.encryptTextFile(path)
                     
                 hlst = self.fsplit.addFile(path,md5)
-                if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : 
-                    print(hlst['head'])
+                if DEBUG.active and DEBUG.level <= DEBUG.NOTICE : 
+                    mprint(hlst['head'])
                     for v in hlst['data']:
-                        print(v)
+                        mprint(v)
                 
                 usr = self.conf.get('name','infos')
                 ownerHash = self.mb.getHashName(usr)
@@ -839,21 +858,21 @@ class ImpraStorage:
                         status, resp = self.ih.fetch(mid[1],'(UID BODYSTRUCTURE)', True)
                         if status == self.ih.OK:
                             sendIds.append((mid[1],row))
-                            print(' ',end='')
+                            mprint(' ',end='')
                             Clz.print('part '        , Clz.fgn7, False)
                             Clz.print(str(row[0])    , Clz.fgB2, False)
                             Clz.print(' sent as msg ', Clz.fgn7, False)
                             Clz.print(str(mid[1])    , Clz.fgB1)
                         else:
-                            print('\n-- error occured when sending part : %s\n-- retrying' % row[0])
+                            mprint('\n-- error occured when sending part : %s\n-- retrying' % row[0])
 
                 if not cancel :
 
                     diff = self.checkSendIds(sendIds,hlst['head'][2])
-                    #~ print('diff')
+                    #~ mprint('diff')
                     #~ for mid in diff :
                         #~ if mid > 0:
-                            #~ print(mid)
+                            #~ mprint(mid)
                             #self.ih.delete(str(mid), True, False)
                     if len(diff) > 0 :                        
                         for mid in diff :
@@ -863,14 +882,15 @@ class ImpraStorage:
                                 # bugfix mid would be without +1
                                 k = [ k for k in sendIds if len(k)>0 and int(k[0]) == int(mid+1)]
                                 if len(k) > 0 :
-                                    print(k)
+                                    mprint(k)
                                     row = k[0][1]
                                     msg  = self.mb.build(usr,'all',hlst['head'][2],self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
-                                    Clz.print(' resending part '      , Clz.fgn7, False)
-                                    Clz.print(str(row[0])             , Clz.fgN2)
+                                    if DEBUG.active :
+                                        Clz.print(' resending part '      , Clz.fgn7, False)
+                                        Clz.print(str(row[0])             , Clz.fgN2)
                                     mid  = self.ih.send(msg.as_string(), self.rootBox)
                     else :
-                        print()
+                        mprint()
                         #Clz.print(' index intall files checked\n', Clz.fgB2)
                     self._setIndexImap()
                     self.index = self.getIndex(True)
@@ -885,21 +905,21 @@ class ImpraStorage:
                     self.clean()
 
             else :
-                print(' ',end='')
+                mprint(' ',end='')
                 Clz.print(' == file already exist on server as '    , Clz.fgN7+Clz.bg1, False)
                 Clz.print(self.index.dic[md5][ImpraIndex.LABEL]     , Clz.bg1+Clz.fgB3, False)
                 Clz.print(' [id:'                                   , Clz.fgN7+Clz.bg1, False)
                 Clz.print(str(self.index.dic[md5][ImpraIndex.UID])  , Clz.bg1+Clz.fgB3, False)
                 Clz.print('] == '                                   , Clz.fgN7+Clz.bg1)
-                print()
+                mprint()
         else :
-            print(' ',end='')
+            mprint(' ',end='')
             Clz.print(' == files is empty or don\t exists == ' , Clz.bg1+Clz.fgN7)
-            print()
+            mprint()
                 
         #~ except Exception as e :
-            #~ print('Erroreuh')
-            #~ print(e)
+            #~ mprint('Erroreuh')
+            #~ mprint(e)
         self._setIndexImap()
         rt.stop()
         return done
@@ -907,36 +927,37 @@ class ImpraStorage:
 
     def editFile(self,key,label,category):
         """"""
-        from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, DEBUG_INFO
+        rt    = RuTime(eval(__CALLER__()))
         done = False
         row  = self.index.get(key)
         if row==None : 
-                print()
+                mprint()
                 Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
                 Clz.print(str(key)                 , Clz.bg1+Clz.fgB3, False)
                 Clz.print('` not on the server == ', Clz.bg1+Clz.fgB7)
-                print()
+                mprint()
         else :
             done = self.index.edit(key,label,category)
+        rt.stop()
         return done
 
     def removeFile(self,key):
         """"""
-        from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, DEBUG_INFO
         done = False
         row  = self.index.get(key)
         if row==None : 
-                print()
+                mprint()
                 Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
                 Clz.print(str(key)                 , Clz.bg1+Clz.fgB3, False)
                 Clz.print('` not on the server == ', Clz.bg1+Clz.fgB7)
-                print()
+                mprint()
         else :
-            rt  = RuTime(eval(__CALLER__('"[%i] %s"' % (row[ImpraIndex.UID],row[ImpraIndex.LABEL]))),DEBUG_INFO)
+            rt  = RuTime(eval(__CALLER__('"[%i] %s"' % (row[ImpraIndex.UID],row[ImpraIndex.LABEL]))),DEBUG.INFO)
             self.switchFileAccount(row[ImpraIndex.ACCOUNT])
             account = self.ih.conf.user
-            Clz.print(' account : '       , Clz.fgn7, False)
-            Clz.print(account             , Clz.fgB7)
+            if DEBUG.active : 
+                Clz.print(' account : '       , Clz.fgn7, False)
+                Clz.print(account             , Clz.fgB7)
             ck    = ConfigKey(row[ImpraIndex.HASH])
             hlst  = ck.getHashList(key,row[ImpraIndex.PARTS],True)
             Clz.print(' get file list from server', Clz.fgn7)
@@ -955,18 +976,17 @@ class ImpraStorage:
         
     def getFile(self,key):
         """"""
-        from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_WARN, DEBUG_INFO
         done  = False
         row   = self.index.get(key)
         if row==None : 
-                print()
-                Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
-                Clz.print(str(key)                 , Clz.bg1+Clz.fgB3, False)
-                Clz.print('` not on the server == ', Clz.bg1+Clz.fgB7)
-                print()
+            mprint()
+            Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
+            Clz.print(str(key)                 , Clz.bg1+Clz.fgB3, False)
+            Clz.print('` not on the server == ', Clz.bg1+Clz.fgB7)
+            mprint()
             
         else :
-            rt  = RuTime(eval(__CALLER__('"[%i] %s"' % (row[ImpraIndex.UID],row[ImpraIndex.LABEL]))),DEBUG_INFO)
+            rt  = RuTime(eval(__CALLER__('"[%i] %s"' % (row[ImpraIndex.UID],row[ImpraIndex.LABEL]))),DEBUG.INFO)
             self.switchFileAccount(row[ImpraIndex.ACCOUNT])
             account = self.ih.conf.user
             Clz.print(' account : '       , Clz.fgn7, False)
@@ -978,21 +998,21 @@ class ImpraStorage:
 
                 for mid in ids :
                     self.ih.downloadAttachment(mid,self.fsplit.DIR_INBOX, True)
-                if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : 
-                    print(hlst['head'])
+                if DEBUG.active and DEBUG.level <= DEBUG.NOTICE : 
+                    mprint(hlst['head'])
                     for v in hlst['data']:
-                        print(v)
+                        mprint(v)
                 path = self.fsplit.deployFile(hlst, row[ImpraIndex.LABEL],  row[ImpraIndex.EXT], row[ImpraIndex.UID], row[ImpraIndex.CATG])
                 if row[ImpraIndex.BFLAG] == ImpraIndex.FILE_CRYPT:
                     self.decryptTextFile(path)
-                print()
+                mprint()
                 Clz.print(' deploying in ', Clz.fgn7)
                 Clz.print(' '+dirname(path), Clz.fgB2)
-                print()
+                mprint()
                 done = True
 
             else :
-                print()
+                mprint()
                 Clz.print(' == `'                         , Clz.BG3+Clz.fgB1, False)
                 Clz.print(row[ImpraIndex.LABEL]           , Clz.BG3+Clz.fgB4, False)
                 Clz.print('` invalid count parts '        , Clz.BG3+Clz.fgB1, False)
@@ -1000,7 +1020,7 @@ class ImpraStorage:
                 Clz.print('/'                             , Clz.BG3+Clz.fgB1, False)
                 Clz.print(str(row[ImpraIndex.PARTS])      , Clz.BG3+Clz.fgB4, False)
                 Clz.print(' == '                          , Clz.BG3+Clz.fgB1)                
-                print()
+                mprint()
             self._setIndexImap()
             rt.stop()
         return done

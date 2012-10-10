@@ -34,7 +34,7 @@ import sys, os, platform
 import impra.crypt as crypt
 import impra.util  as util
 import impra.core  as core
-from   impra.util  import Clz
+from   impra.util  import Clz, mprint
 
 
 LINE_SEP_LEN  = 120
@@ -103,8 +103,9 @@ class Cli:
         gpConf      = OptionGroup(parser, '')
 
         # metavar='<ARG1> <ARG2>', nargs=2
-        parser.add_option('-q', '--quiet'         , help='don\'t print status messages to stdout'                      , action='store_false', default=True)
+        parser.add_option('-q', '--quiet'         , help='don\'t print status messages to stdout'                      , action='store_true', default=False)
         parser.add_option('-d', '--debug'         , help='set debug mode'                                              , action='store_true' , default=False)
+        parser.add_option('--no-color'            , help='disable color mode'                                          , action='store_true' , default=False)
         
         gpData.add_option('-c', '--category'      , help='set specified CATEGORY (crit. for opt. -l,-a or -s)'         , action='store',       metavar='CATG            ')
         gpData.add_option('-u', '--user'          , help='set specified USER (crit. for opt. -l,-a or -s)'             , action='store',       metavar='OWNER           ')
@@ -132,14 +133,26 @@ class Cli:
 
         (o, a) = parser.parse_args()
         
-        print()
+        if o.no_color :
+            util.Clz.active = False
+        
+        if o.quiet :
+            util.DEBUG.active = False
+        else:
+            util.DEBUG.active = True
+            if o.debug :            
+                util.DEBUG.level  = util.DEBUG.ALL
+            else : 
+                util.DEBUG.level  = util.DEBUG.INFO
+        
+        mprint()
         if not a:
 
             try :
                 if not o.help : 
                     self.parserError(' no commando specified')
                 else :
-                    core.clear()
+                    if util.DEBUG.active : core.clear()
                     parser.print_help()
             except :
                 self.parserError(' no commando specified')
@@ -149,7 +162,7 @@ class Cli:
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # ~~ conf CMD ~~
             if a[0] == 'conf' :
-                core.clear()
+                if util.DEBUG.active : core.clear()
                 if o.load is not None or o.view is not None or o.save is not None :
                     
                     if o.view is not None :
@@ -181,7 +194,7 @@ class Cli:
                                     else : colr = Clz.fgB3                                        
                                     Clz.print(sep+p, colr, False)
                                     if sep=='':sep=','
-                                print()
+                                mprint()
                             else : Clz.print(' no profiles', Clz.fgB1)
                         else: self.ini.print(o.view)
 
@@ -225,7 +238,7 @@ class Cli:
                     self.print_usage('')
             
             elif a[0] == 'help':
-                core.clear()
+                if util.DEBUG.active : core.clear()
                 parser.print_help()
 
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -236,14 +249,14 @@ class Cli:
                     
                     
                 if self.check_profile(o.active_profile):
-                    core.clear()
-                    self.print_header()
+                    if util.DEBUG.active : core.clear()
+                    if util.DEBUG.active: self.print_header()
                     conf  = core.ImpraConf(self.ini,o.active_profile)
                     impst = None
                     try:                        
                         impst = core.ImpraStorage(conf, False, self.wkpath)
                     except crypt.BadKeyException as e :
-                        print()
+                        mprint()
                         Clz.print(' it seems that your current profile `'                    , Clz.fgB1, False)
                         Clz.print(o.active_profile                                           , Clz.fgB3, False)
                         Clz.print('` (account:`'                                             , Clz.fgB1, False)
@@ -266,17 +279,17 @@ class Cli:
                         resp = input(' remove index ? (yes/no) ')
                         if resp.lower()=='yes':
                             impst = core.ImpraStorage(conf, True, self.wkpath)
-                            print()
-                            print(' bye')
+                            mprint()
+                            mprint(' bye')
                             Clz.print(' ',Clz.OFF)
-                            print()
+                            mprint()
                             self.exit(1)
                             
                         else : 
-                            print()
-                            print(' bye')
+                            mprint()
+                            mprint(' bye')
                             Clz.print(' ',Clz.OFF)
-                            print()
+                            mprint()
                             self.exit(1)
 
 
@@ -289,7 +302,7 @@ class Cli:
                             noData = impst.index.isEmpty()
                             if uid  == None or noData : uid  = 'EMPTY'
                             if date == None or noData : date = ''
-                            core.clear()
+                            if util.DEBUG.active : core.clear()
                             printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
                             printHeaderTitle(APP_TITLE)
                             printHeaderPart('account',account)
@@ -302,7 +315,7 @@ class Cli:
                             matchIdsUser = None
                             matchIds     = None
                             if o.category is not None :
-                                print(o.category)
+                                mprint(o.category)
                                 matchIdsCatg = impst.index.getByCategory(o.category)
                             if o.user is not None :
                                 matchIdsUser = impst.index.getByUser(o.user)
@@ -332,9 +345,9 @@ class Cli:
                                 if o.category is None : o.category = ''
                                 done = impst.addFile(vfile,label,o.category)
                                 if done :
-                                    print('\n ',end='')
+                                    mprint('\n ',end='')
                                     Clz.print(' == OK == ', Clz.bg2+Clz.fgb7)
-                                    print()
+                                    mprint()
                                 
                             else : self.error_cmd('`'+a[1]+' is not a file',parser)
 
@@ -342,11 +355,11 @@ class Cli:
                         if not len(a)>1 : self.error_cmd('`'+a[0]+' need an id',parser)
                         else:
                             if not util.represents_int(a[1]):
-                                print('\n ',end='')
+                                mprint('\n ',end='')
                                 Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
                                 Clz.print(a[1]                     , Clz.bg1+Clz.fgB3, False)
                                 Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
-                                print()
+                                mprint()
                                 self.exit(1)
                             else : 
                                 vid = a[1]
@@ -355,21 +368,21 @@ class Cli:
                                     done = impst.editFile(key,o.label,o.category)
                                     if done :
                                         impst.saveIndex()
-                                        print('\n ',end='')
+                                        mprint('\n ',end='')
                                         Clz.print(' == OK == ', Clz.bg2+Clz.fgb7)
-                                        print()
+                                        mprint()
                                     else :
-                                        print('\n ',end='')
+                                        mprint('\n ',end='')
                                         Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
                                         Clz.print(a[1]                     , Clz.bg1+Clz.fgB3, False)
                                         Clz.print('` has not been modified == ', Clz.bg1+Clz.fgB7)
-                                        print()                                        
+                                        mprint()                                        
                                 else: 
-                                    print('\n ',end='')
+                                    mprint('\n ',end='')
                                     Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
                                     Clz.print(a[1]                     , Clz.bg1+Clz.fgB3, False)
                                     Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
-                                    print()
+                                    mprint()
 
                     elif a[0] == 'get':
                         
@@ -386,15 +399,15 @@ class Cli:
                                 if key !=None : 
                                     done = impst.getFile(key)
                                     if done :
-                                        print('\n ',end='')
+                                        mprint('\n ',end='')
                                         Clz.print(' == OK == ', Clz.bg2+Clz.fgb7)
-                                        print()
+                                        mprint()
                                 else: 
-                                    print('\n ',end='')
+                                    mprint('\n ',end='')
                                     Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
                                     Clz.print(str(sid)                 , Clz.bg1+Clz.fgB3, False)
                                     Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
-                                    print()
+                                    mprint()
 
 
                     elif a[0] == 'search':
@@ -409,7 +422,7 @@ class Cli:
                             vsearch = a[1]
                             
                             matchIds = impst.index.getByPattern(vsearch)
-                            core.clear()
+                            if util.DEBUG.active : core.clear()
                             if matchIds is not None:
                                 printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
                                 printHeaderTitle(APP_TITLE)
@@ -429,7 +442,7 @@ class Cli:
                                 matchIdsUser = None
                                 matchIdsCrit = None
                                 if o.category is not None :
-                                    print(o.category)
+                                    mprint(o.category)
                                     matchIdsCatg = impst.index.getByCategory(o.category)
                                 if o.user is not None :
                                     matchIdsUser = impst.index.getByUser(o.user)
@@ -450,11 +463,11 @@ class Cli:
                                     order = '-'+o.order_inv
                                 impst.index.print(o.order,matchIds)
                             else:
-                                print('\n ',end='')
+                                mprint('\n ',end='')
                                 Clz.print(' == no match found for pattern `', Clz.bg3+Clz.fgB4, False)
                                 Clz.print(vsearch                           , Clz.bg3+Clz.fgB1, False)
                                 Clz.print('` == '                           , Clz.bg3+Clz.fgB4)
-                                print()
+                                mprint()
 
                     elif a[0] == 'remove':
                         
@@ -462,11 +475,11 @@ class Cli:
                         else :
 
                             if not util.represents_int(a[1]):
-                                print('\n ',end='')
+                                mprint('\n ',end='')
                                 Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
                                 Clz.print(a[1]                     , Clz.bg1+Clz.fgB3, False)
                                 Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
-                                print()
+                                mprint()
                                 self.exit(1)
                             else : 
                                 vid = a[1]
@@ -474,22 +487,22 @@ class Cli:
                                 if key !=None : 
                                     done = impst.removeFile(key)
                                     if done :
-                                        print('\n ',end='')
+                                        mprint('\n ',end='')
                                         Clz.print(' == OK == ', Clz.bg2+Clz.fgb7)
-                                        print()
+                                        mprint()
                                 else: 
-                                    print('\n ',end='')
+                                    mprint('\n ',end='')
                                     Clz.print(' == `'                  , Clz.bg1+Clz.fgB7, False)
                                     Clz.print(a[1]                     , Clz.bg1+Clz.fgB3, False)
                                     Clz.print('` is not a valid id == ', Clz.bg1+Clz.fgB7)
-                                    print()
+                                    mprint()
                 else :
                     self.check_profile(o.active_profile, True)
 
             else :
                 if self.ini.isEmpty() :
                     Clz.print(' '*4+'ImpraStorage has no configuration file !!', Clz.fgB1)
-                    print()
+                    mprint()
                     Clz.print(' '*8+'# to create the config file you must use this command with appropriate values :',Clz.fgn7)
                     Clz.print(' '*8+'# type command help for details',Clz.fgn7)
                     Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
@@ -508,17 +521,17 @@ class Cli:
                     Clz.print('accountPassword ', Clz.fgB1)
                 else :
                     self.error_cmd('unknow command `'+a[0]+'`',parser)
-        print()
+        mprint()
     
     
     def error_cmd(self,msg, parser):
-        core.clear()
+        if util.DEBUG.active : core.clear()
         self.print_usage('')
         Clz.print('error : '+msg,Clz.fgB7)
         self.exit(1)
 
     def parserError(self, msg):
-        core.clear()
+        if util.DEBUG.active : core.clear()
         self.print_usage('')
         Clz.print('error : '+msg,Clz.fgB7)
         self.exit(1)
@@ -569,7 +582,7 @@ class Cli:
         printHeaderPart('copyright','2012 '+APP_COPY)        
         Clz.print(' ', Clz.OFF)
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
-        print()
+        mprint()
 
     def print_version(self, data):
         self.print_header()
@@ -727,7 +740,7 @@ class Cli:
         Clz.print(' ]', Clz.fgB3)
     
     def print_options(self):
-        print('\n')
+        mprint('\n')
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
         Clz.print('  MAIN OPTIONS :\n'                              , Clz.fgB3)        
         Clz.print(' '*4+'-h, --help'                                , Clz.fgB3)
@@ -736,7 +749,7 @@ class Cli:
         Clz.print(' '*50+'don\'t print status messages to stdout'   , Clz.fgB7)
         Clz.print(' '*4+'-d, --debug'                               , Clz.fgB3)
         Clz.print(' '*50+'set debug mode'                           , Clz.fgB7)
-        print('\n')
+        mprint('\n')
         
         Clz.print('  COMMANDS OPTIONS :\n'                          , Clz.fgB3)
         Clz.print(' '*4+'-c '                                       , Clz.fgB3, False)
@@ -769,7 +782,7 @@ class Cli:
         Clz.print('COLON'.ljust(10,' ')                             , Clz.fgB1)
         Clz.print(' '*50+'reverse order by specified colon'         , Clz.fgB7)
         
-        print('\n')
+        mprint('\n')
         Clz.print('  CONF OPTIONS :\n', Clz.fgB3)        
         Clz.print(' '*4+'-L '                                       , Clz.fgB3, False)
         Clz.print('PROFILE'.ljust(10,' ')                           , Clz.fgB1, False)
@@ -795,7 +808,7 @@ class Cli:
         Clz.print('PROFILE'.ljust(10,' ')                           , Clz.fgB1)
         Clz.print(' '*50+'save the specified profile'               , Clz.fgB7)
 
-        print('\n')
+        mprint('\n')
         Clz.print('  CONF -S OPTIONS :\n', Clz.fgB3)   
         Clz.print(' '*4+'-N '                                       , Clz.fgB3, False)
         Clz.print('NAME'.ljust(10,' ')                              , Clz.fgB1, False)
@@ -851,7 +864,7 @@ class Cli:
         Clz.print('USER'.ljust(10,' ')                              , Clz.fgB1)        
         Clz.print(' '*50+'remove imap multi account'                , Clz.fgB7)
         
-        print('\n')    
+        mprint('\n')    
 
 
     def print_help(self):
@@ -861,7 +874,7 @@ class Cli:
         self.print_usage('',True)
         self.print_options()
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
-        print()
+        mprint()
         Clz.print('  EXEMPLES :\n', Clz.fgB3)
         CHQ  = "'"
         sep = core.sep
@@ -1115,17 +1128,17 @@ class Cli:
         Clz.print('bob23', Clz.fgB1)
 
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
-        print()
+        mprint()
 
 
     def load_profile(self,o):
         """"""        
         if self.check_profile(o.active_profile):
-            print('',end=' ')
+            mprint('',end=' ')
             Clz.print(' == profile `', Clz.bg2+Clz.fgb7, False)
             Clz.print(o.active_profile, Clz.bg2+Clz.fgB3, False)
             Clz.print('` loaded == ', Clz.bg2+Clz.fgb7)
-            print()
+            mprint()
             self.ini.set('profile', o.active_profile)
             self.ini.write()
         else :

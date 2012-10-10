@@ -37,7 +37,7 @@ from os.path          import join
 from re               import search, split
 from time             import time, sleep
 
-from impra.util       import __CALLER__, RuTime, bstr, stack, Clz
+from impra.util       import __CALLER__, RuTime, bstr, stack, Clz, DEBUG, mprint
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -170,6 +170,9 @@ class ImapHelper:
         self.srv = IMAP4_SSL(conf.host,conf.port)
         self.conf = conf
         status, resp = self.srv.login(conf.user,conf.pwd)
+        if DEBUG.level <= DEBUG.ALL :
+            mprint(status)
+            mprint(resp)
         self.rootBox = box
         if boxBin is None :
             if search('yahoo.com',conf.host) is not None :
@@ -305,27 +308,26 @@ class ImapHelper:
 
     def deleteBin(self):
         """"""
-        from impra.util import DEBUG_NOTICE, DEBUG, DEBUG_LEVEL, DEBUG_INFO
-        rt = RuTime(eval(__CALLER__()),DEBUG_INFO)
+        rt = RuTime(eval(__CALLER__()),DEBUG.INFO)
         self.srv.select(self.BOX_BIN)
         ids = self.search('ALL',True)        
         if len(ids) > 0 and ids[0]!='' and ids[0]!=None:
-            print()
+            mprint()
             #print(str(ids[0],'utf-8').split())
             for mid in ids:                
                 #~ uid = bytes(mid)
-                #~ print(type(mid))
-                #~ print(mid)
+                #~ mprint(type(mid))
+                #~ mprint(mid)
                 #status, resp = self.srv.store(mid, '+FLAGS', '\\Deleted')
                 status, resp = self.srv.uid('store', mid, '+FLAGS (\\Deleted)' )
-                print(' ',end='')
+                mprint(' ',end='')
                 Clz.print(' deleting msg ',Clz.fgN7+Clz.bg1, False)
                 Clz.print(str(int(mid))   ,Clz.bg1+Clz.fgB3)
-                if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE:                    
-                    print(status)
-                    print(resp)
+                if DEBUG.level <= DEBUG.NOTICE:                    
+                    mprint(status)
+                    mprint(resp)
             self.srv.expunge()
-            print()
+            mprint()
         self.srv.select(self.rootBox)  
         rt.stop()
         
@@ -338,6 +340,7 @@ class ImapHelper:
                 status, resp = self.srv.uid( 'store', mid, '+FLAGS (\\Deleted)' )
             else :
                 status, resp = self.srv.store(mid, '+FLAGS', 'Deleted')
+
             Clz.print(' flag msg ' , Clz.fgn7, False)
             Clz.print(str(int(mid)), Clz.fgB1, False)
             Clz.print(' as deleted', Clz.fgn7)
@@ -352,13 +355,12 @@ class ImapHelper:
 
     def downloadAttachment(self, msg, toDir='./', byUid=False):
         """"""
-        from impra.util import DEBUG, DEBUG_LEVEL, DEBUG_NOTICE, DEBUG_INFO
-        rt = RuTime(eval(__CALLER__('%i' % int(msg))),DEBUG_INFO)
+        rt = RuTime(eval(__CALLER__('%i' % int(msg))),DEBUG.INFO)
         if not isinstance(msg, Message) :
             msg = self.email(msg,byUid)
         for part in msg.walk():
             filename = part.get_filename()
-            if filename != None and DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE : print(filename)
+            if filename != None and DEBUG.level <= DEBUG.NOTICE : mprint(filename)
             if part.get_content_maintype() == 'multipart' or not filename : continue
             fp = open(join(toDir, filename), 'wb')
             #print(part.get_payload(decode=True)[::-1])
@@ -368,15 +370,14 @@ class ImapHelper:
 
     def send(self, msg, box='INBOX'):
         """"""
-        from impra.util import DEBUG_INFO, DEBUG_LEVEL, DEBUG, DEBUG_NOTICE
         rt   = RuTime(eval(__CALLER__()))
         mid  = None
         date = Time2Internaldate(time())
         status, resp  = self.srv.append(box, '\Draft', date, bytes(msg,'utf-8'))
         if status==self.OK:
-            if DEBUG and DEBUG_LEVEL <= DEBUG_NOTICE:
-                print(status)
-                print(resp)
+            if DEBUG.level <= DEBUG.NOTICE:
+                mprint(status)
+                mprint(resp)
             m = search(b']', resp[0])
             mid = str(resp[0],'utf-8')[11:-(len(resp[0])-m.start())].split(' ')
         rt.stop()

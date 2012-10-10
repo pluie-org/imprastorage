@@ -126,6 +126,7 @@ class ConfigKey:
     
     def __init__(self, key=None, salt=None, psize=19710000):
         """"""
+        rt = RuTime(eval(__CALLER__()))
         if key  : self.key  = bytes(key,'utf-8')
         else :    self.key  = self._build()
         if salt ==None : self.salt = str(self.key[::-10])
@@ -133,6 +134,7 @@ class ConfigKey:
         self.psize  = psize
         self.noiser = Noiser(self.key)
         self.rdmz   = Randomiz(1)
+        rt.stop()
 
     def getHashList(self,name,count,noSorted=False):
         """"""
@@ -154,8 +156,11 @@ class ConfigKey:
     
     def _build(self,l=48):
         """"""
+        rt = RuTime(eval(__CALLER__()))
         kg = KeyGen(l)
-        return urlsafe_b64encode(bytes(kg.key,'utf-8'))
+        k  = urlsafe_b64encode(bytes(kg.key,'utf-8'))
+        rt.stop()
+        return k
     
     def getKey(self):
         """"""
@@ -170,29 +175,35 @@ class Kirmah:
 
     def __init__(self, key, mark):
         """"""
+        rt = RuTime(eval(__CALLER__()))
         self.key  = bytes(key,'utf-8')
         self.mark = mark
         self.ck   = ConfigKey(mark)
+        rt.stop()
 
     def enchr(self,o,cs,ce):
         """"""
+        #~ rt = RuTime(eval(__CALLER__()))
         if not self.key[cs] > self.key[ce] or not o - 2*self.key[cs] - self.key[ce] > 0:
             o += self.key[ce]
         else:
             o -= self.key[cs]
         if o == 10: o+=30
+        #~ rt.stop()
         return o
 
     def dechr(self,o,cs,ce):
         """"""
+        #~ rt = RuTime(eval(__CALLER__()))
         if not self.key[cs] > self.key[ce] or self.enchr(o - self.key[ce],cs,ce)==o : 
             o -= self.key[ce]
         else :
             o += self.key[cs]
+        #~ rt.stop()
         return o
 
     def subenc(self,data):
-        """"""
+        """"""        
         rt = RuTime(eval(__CALLER__()))
         s, i, lkey, ld = '', 0, len(self.key), len(data)
 
@@ -229,14 +240,20 @@ class Kirmah:
     
     def sign(self,data):
         """"""
-        return hash_sha256(self.mark + hash_sha256(data)) + data
+        rt = RuTime(eval(__CALLER__()))
+        sd = hash_sha256(self.mark + hash_sha256(data)) + data
+        rt.stop()
+        return sd
         
     def unsign(self,data):
         """"""
+        rt = RuTime(eval(__CALLER__()))
         d = data[64:]
         if not data[:64] == hash_sha256(self.mark + hash_sha256(d)):
             raise BadKeyException() 
-        else: return d
+        else: 
+            rt.stop()
+            return d
 
     def encrypt(self, odata, label, cpart):
         """"""
@@ -291,19 +308,25 @@ class Randomiz:
     
     def __init__(self,count,chl=None):
         """"""
+        #~ rt = RuTime(eval(__CALLER__()))
         if chl ==None : self.lst = list(range(0,count))
         else: self.lst = chl
         self.count = len(self.lst)
+        #~ rt.stop()
     
     def new(self,count=None, chl=None):
         """"""
+        #~ rt = RuTime(eval(__CALLER__()))
         if count : self.count = count
         self.__init__(self.count,chl)
+        #~ rt.stop()
     
     def get(self,single=True):
         """"""
+        #~ rt = RuTime(eval(__CALLER__()))
         pos = choice(self.lst)
         if single: del self.lst[self.lst.index(pos)]
+        #~ rt.stop()
         return pos
 
 
@@ -315,23 +338,29 @@ class Noiser:
 
     def __init__(self, key, part=0):
         """"""
+        #~ rt = RuTime(eval(__CALLER__()))
         self.key  = key
         self.build(part)
+        #~ rt.stop()
 
     def build(self, part):
         """"""
+        #~ rt = RuTime(eval(__CALLER__()))
         if not part < len(self.key)-1 : raise Exception('part exceed limit')
         else :
             self.part, v = part, 0
             v  = int(ceil((self.key[22]+v)/4.20583))
             self.lns = abs(int(ceil(v/2))-self.key[self.part]+self.key[7])
             self.lne = abs(int(v-self.lns-self.key[self.part+2]-self.key[44]/2.1934))
+        #~ rt.stop()
 
     def getNoise(self, l, noBytes=False):
         """"""
+        #~ rt = RuTime(eval(__CALLER__()))
         n = urandom(l)
         if noBytes:
             n = str(urlsafe_b64encode(n),'utf-8')[0:l]
+        #~ rt.stop()
         return n
 
 
