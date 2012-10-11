@@ -124,8 +124,8 @@ class Cli:
         gpConf.add_option('-X', '--set-pass'      , help='set imap user password'                                      , action='store',       metavar='PASS            ')
         gpConf.add_option('-P', '--set-port'      , help='set imap port'                                               , action='store',       metavar='PORT            ')
         gpConf.add_option('-N', '--set-name'      , help='set user name'                                               , action='store',       metavar='NAME            ')
-        gpConf.add_option('-M', '--set-multi'     , help='set multi account'                                           , action='store',       metavar='ACCOUNT PASSWORD', nargs=2)
-        gpConf.add_option('-R', '--remove-multi'  , help='remove multi account'                                        , action='store',       metavar='ACCOUNT         ')
+        gpConf.add_option('-M', '--set-multi'     , help='set multi account'                                           , action='store',       metavar='PROFILE         ')
+        gpConf.add_option('-R', '--remove-multi'  , help='remove multi account'                                        , action='store',       metavar='PROFILE         ')
         gpConf.add_option('-B', '--set-boxname'   , help='set boxName on imap server (default:[%default])'             , action='store',       metavar='BOXNAME         ')
         gpConf.add_option('-K', '--gen-key'       , help='generate new key'                                            , action='store_true',  default=False)
 
@@ -215,11 +215,18 @@ class Cli:
                                 if o.set_name   : self.ini.set('name' , o.set_name,o.active_profile+'.infos')
                                 
                                 m = self.ini.get('multi',o.active_profile+'.imap')
-                                if m is None : m = {}
-                                else: m = eval(m)
-                                if o.set_multi  : m[o.set_multi[0]] = o.set_multi[1]                                    
-                                elif o.remove_multi and m is not None and o.remove_multi in m : m.pop(o.remove_multi,None)                                
-                                self.ini.set('multi', core.jdumps(m),o.active_profile+'.imap')
+                                if m is None : m = []
+                                else : m = m.split(',')
+                                m = [x for x in m if x]
+                                if o.set_multi  :
+                                    if self.check_imap(o.set_multi):
+                                        if not o.set_multi in m :m.append(o.set_multi)
+                                    else:
+                                        mprint()
+                                        Clz.print('imap profile '+o.set_multi+' not found', Clz.fgB1)
+                                        mprint()
+                                elif o.remove_multi and o.remove_multi in m : m.remove(o.remove_multi)              
+                                self.ini.set('multi', ','.join(m), o.active_profile+'.imap')
                                 
                                 if o.gen_key:
                                     kg = crypt.KeyGen(256)
@@ -582,9 +589,12 @@ class Cli:
     def exit(self, code):
         if Clz.isUnix : sys.exit(code)
 
+    def check_imap(self,profile):
+        return self.ini.has('host',profile+'.imap') and self.ini.has('user',profile+'.imap') and self.ini.has('pass',profile+'.imap') and self.ini.has('port',profile+'.imap')
+
     def check_profile(self,profile, activeCheck=False):
         """"""
-        c = self.ini.hasSection(profile+'.keys') and self.ini.has('host',profile+'.imap') and self.ini.has('user',profile+'.imap') and self.ini.has('pass',profile+'.imap') and self.ini.has('port',profile+'.imap') and self.ini.has('name',profile+'.infos')
+        c = self.ini.hasSection(profile+'.keys') and self.check_imap(profile) and self.ini.has('name',profile+'.infos')
         if activeCheck :
             if c :
                 Clz.print(' '+profile+' is ok', Clz.fgB2)
@@ -778,13 +788,11 @@ class Cli:
         Clz.print(' '*40, Clz.fgb7, False)
         Clz.print('-M ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
-        Clz.print('user', Clz.fgB1, False)
-        Clz.print('} {', Clz.fgB1, False)
-        Clz.print('pass', Clz.fgB1, False)
+        Clz.print('profile', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
         Clz.print(' -R ', Clz.fgB3, False)
         Clz.print('{', Clz.fgB1, False)
-        Clz.print('user', Clz.fgB1, False)
+        Clz.print('profile', Clz.fgB1, False)
         Clz.print('}', Clz.fgB1, False)
         Clz.print(' ]', Clz.fgB3)
     
@@ -904,15 +912,15 @@ class Cli:
         Clz.print(' '*50+'set imap boxname (default:__impra__)'     , Clz.fgB7)
         
         Clz.print(' '*4+'-M '                                       , Clz.fgB3, False)
-        Clz.print('USER PASS'.ljust(10,' ')                         , Clz.fgB1, False)
+        Clz.print('PROFILE'.ljust(10,' ')                           , Clz.fgB1, False)
         Clz.print(', --set-multi'.ljust(18,' ')                     , Clz.fgB3, False)
-        Clz.print('USER PASS'.ljust(10,' ')                         , Clz.fgB1)        
+        Clz.print('PROFILE'.ljust(10,' ')                           , Clz.fgB1)        
         Clz.print(' '*50+'add imap multi account'                   , Clz.fgB7)
 
         Clz.print(' '*4+'-R '                                       , Clz.fgB3, False)
-        Clz.print('USER'.ljust(10,' ')                              , Clz.fgB1, False)
+        Clz.print('PROFILE'.ljust(10,' ')                           , Clz.fgB1, False)
         Clz.print(', --remove-multi'.ljust(18,' ')                  , Clz.fgB3, False)
-        Clz.print('USER'.ljust(10,' ')                              , Clz.fgB1)        
+        Clz.print('PROFILE'.ljust(10,' ')                           , Clz.fgB1)        
         Clz.print(' '*50+'remove imap multi account'                , Clz.fgB7)
         
         mprint('\n')    
@@ -1185,7 +1193,7 @@ class Cli:
         Clz.print('-S ', Clz.fgB3, False)
         Clz.print('bobgmail ', Clz.fgB1, False)
         Clz.print('-M ', Clz.fgB3, False)
-        Clz.print('bob23 passbob23', Clz.fgB1)
+        Clz.print('bobimap', Clz.fgB1)
         
         Clz.print(' '*8+'# remove multi account to profile bobgmail',Clz.fgn7)
         Clz.print(' '*8+'imprastorage ', Clz.fgB7, False)
@@ -1193,7 +1201,7 @@ class Cli:
         Clz.print('-S ', Clz.fgB3, False)
         Clz.print('bobgmail ', Clz.fgB1, False)
         Clz.print('-R ', Clz.fgB3, False)
-        Clz.print('bob23', Clz.fgB1)
+        Clz.print('bobimap', Clz.fgB1)
 
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
         mprint()

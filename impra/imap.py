@@ -169,6 +169,10 @@ class ImapHelper:
         rt = RuTime(eval(__CALLER__('conf,"'+str(box)+'"')))
         self.srv = IMAP4_SSL(conf.host,conf.port)
         self.conf = conf
+        print(conf.host)
+        print(conf.port)
+        print(conf.user)
+        print(conf.pwd)
         status, resp = self.srv.login(conf.user,conf.pwd)
         if DEBUG.level <= DEBUG.ALL :
             mprint(status)
@@ -176,7 +180,7 @@ class ImapHelper:
         if status == self.OK:
             self.rootBox = box
             if boxBin is None :
-                if search('yahoo.com',conf.host) is not None :
+                if search('google.com',conf.host) is None:
                     self.BOX_BIN = 'Trash'
             if box != None :
                 status, resp = self.srv.select(self.rootBox)

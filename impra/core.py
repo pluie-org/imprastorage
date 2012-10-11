@@ -402,7 +402,7 @@ class ImpraIndex:
 
     def fixAccount(self,account):
         """"""
-        rt    = RuTime(eval(__CALLER__()))
+        rt    = RuTime(eval(__CALLER__('%s' % account)))
         r = [k for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)]
         for k in r:
             t = list(self.dic[k])
@@ -415,24 +415,24 @@ class ImpraIndex:
 
     def getLightestAccount(self,l):
         """"""
-        rt    = RuTime(eval(__CALLER__()))
+        rt    = RuTime(eval(__CALLER__('%s' % str(l))))
         r = [k for i, k in enumerate(self.dic) if not k.startswith(self.SEP_KEY_INTERN)]
         t = {}
         for k in r:
             if not self.dic[k][self.ACCOUNT] in t: t[self.dic[k][self.ACCOUNT]] = self.dic[k][self.SIZE]
             else: t[self.dic[k][self.ACCOUNT]] += int(self.dic[k][self.SIZE])
-        account = None
+        profile = None
         r = []
         for a in l:
             if not a in t :
-                account = a
+                profile = a
                 break
             else : r.append((t[a],a))
-        if account is None :
+        if profile is None :
             d = sorted(r, reverse=False, key=lambda lst:lst[0])
-            account = d[0][1]
+            profile = d[0][1]
         rt.stop()
-        return account
+        return profile
 
     def fixDuplicateIds(self):
         """Get corresponding keys of duplicate ids in the index
@@ -563,7 +563,7 @@ class ImpraIndex:
         a = ''
         tsize = 0
         psize = 0
-        #~ acc   = {}        #~ acc   = {}
+        acc   = {}
         for v,k in d :
             if matchIds==None or v[self.UID] in matchIds:
                 a = ''
@@ -575,14 +575,15 @@ class ImpraIndex:
                 Clz.print(str(v[self.PARTS]).rjust(2 ,'0') +' '*2                , Clz.fgN1, False)
                 Clz.print(str(v[self.EXT][:5]).ljust(7,' ')                      , Clz.fgn3, False)
                 Clz.print(self.getUser(str(v[self.USER])).ljust(15  ,' ')        , Clz.fgn7, False)
-                Clz.print(str(v[self.CATG]).ljust(30 ,' ')                       , Clz.fgN3)
-                #~ Clz.print(str(v[self.CATG]).ljust(30 ,' ')                       , Clz.fgN3, False)
-                #~ if len(v)-1==self.ACCOUNT:
-                    #~ Clz.print(str(v[self.ACCOUNT]) +' '*2                        , Clz.fgN3)
-                    #~ if v[self.ACCOUNT] in acc :
-                        #~ acc[v[self.ACCOUNT]] += int(v[self.SIZE])
-                    #~ else : acc[v[self.ACCOUNT]] = int(v[self.SIZE])
-                #~ else: mprint()
+                #~ Clz.print(str(v[self.CATG]).ljust(30 ,' ')                       , Clz.fgN3)
+                Clz.print(str(v[self.CATG]).ljust(30 ,' ')                       , Clz.fgN3, False)
+                if len(v)-1==self.ACCOUNT:
+                    Clz.print(str(v[self.ACCOUNT]) +' '*2                        , Clz.fgN3)
+                    if v[self.ACCOUNT] in acc :
+                        acc[v[self.ACCOUNT]] += int(v[self.SIZE])
+                    else : acc[v[self.ACCOUNT]] = int(v[self.SIZE])
+                else: mprint()
+
                 psize += int(v[self.SIZE])
             tsize += int(v[self.SIZE])
         if len(d)==0:
@@ -598,16 +599,17 @@ class ImpraIndex:
             Clz.print(formatBytes(int(tsize)), Clz.fgB2, False)
         mprint()
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
-        #~ Clz.print(' '*4+'[', Clz.fgB7, False)
-        #~ sep = ''
-        #~ for k in acc:
-            #~ if k!= '':
-                #~ Clz.print(sep+k,Clz.fgB3,False)
-                #~ Clz.print(':',Clz.fgB7,False)
-                #~ Clz.print(formatBytes(acc[k]),Clz.fgB2,False)
-                #~ if sep=='':sep = ','
-        #~ Clz.print(']', Clz.fgB7, False)
-        #~ mprint()
+
+        Clz.print(' '*4+'[', Clz.fgB7, False)
+        sep = ''
+        for k in acc:
+            if k!= '':
+                Clz.print(sep+k,Clz.fgB3,False)
+                Clz.print(':',Clz.fgB7,False)
+                Clz.print(formatBytes(acc[k]),Clz.fgB2,False)
+                if sep=='':sep = ','
+        Clz.print(']', Clz.fgB7, False)
+        mprint()
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -757,6 +759,7 @@ class ImpraStorage:
             #~ self.srv.expunge()
             #~ sleep(2)
         self.index.fixDuplicateIds()
+        #~ self.index.fixAccount('gmx')
         encData  = self.index.encrypt() 
         msgIndex = self.mb.buildIndex(encData)        
         if DEBUG.level <= DEBUG.NOTICE : mprint(msgIndex.as_string())
@@ -794,44 +797,48 @@ class ImpraStorage:
         lsrv = self.ih.searchBySubject(subject,True)
         return  [ int(i) for i in set(lloc).difference(set(lsrv))]
     
-    def switchFileAccount(self,account=None):
+    def switchFileAccount(self,profile=None):
         """"""
-        rt    = RuTime(eval(__CALLER__()))
-        al = self.conf.get('multi','imap')
-        if al is not None :
-            al    = eval(al)
-            if len(al) > 0:
-                if not self.conf.get('user','imap') in al:
-                    al[self.conf.get('user','imap')] = self.conf.get('pass','imap')
-                iconf = self.ih.conf
-                if iconf.user != account :
+        rt    = RuTime(eval(__CALLER__('%s' % str(profile))))
+        pl = self.conf.get('multi','imap')
+        if pl is not None :
+            pl = pl.split(',')
+            if len(pl) > 0:
+                if not self.conf.profile in pl:
+                    pl.append(self.conf.profile)
+                iconf   = self.ih.conf
+                account = self.conf.get('user','imap',profile)
+                if True or iconf.user != account :
                     # reinit
                     iconf.user = None
                     try :
-                        if account is None : account = self.index.getLightestAccount(al)
-                        if account in al :
-                            iconf.user = account
-                            iconf.pwd  = al[account]                    
+                        if profile is None : profile = self.index.getLightestAccount(pl)
+                        if profile in pl :
+                            iconf.user = self.conf.get('user','imap',profile)
+                            iconf.pwd  = self.conf.get('pass','imap',profile)
+                            iconf.host = self.conf.get('host','imap',profile)
+                            iconf.port = self.conf.get('port','imap',profile)
                         self.ih = ImapHelper(iconf,self.rootBox)
                     except Exception as e:
                         mprint('Error : ')
                         mprint(e)
-                        mprint('check your connection or your imap config for account '+iconf.user+' : '+iconf.password)
+                        mprint('check your connection or your imap config for profile '+profile)
         rt.stop()
+        if profile is None: profile = self.conf.profile
+        return profile
     
     def addFile(self, path, label, catg=''):
         """"""
         done = False
         rt = RuTime(eval(__CALLER__()),DEBUG.INFO)
      
-        self.switchFileAccount()       
+        account = self.switchFileAccount()       
 
         _, ext = splitext(path)
         #~ try:
         size = getsize(path)
         if size > 0 :
             md5     = hash_sha256_file(path)
-            account = self.ih.conf.user
             mprint()
             Clz.print(' account : '       , Clz.fgn7, False)
             Clz.print(account             , Clz.fgB7)
@@ -910,12 +917,11 @@ class ImpraStorage:
                     self.index.add(hlst['head'][3],label,hlst['head'][1],ext,ownerHash,catg,md5,bFlag,size,account)                        
                     done = self.saveIndex()    
                 
-                else : 
-                    # clean 
-                    for mid, row in sendIds :
-                        if cancel : self.ih.delete(mid, True)
-                        if file_exists(self.fsplit.DIR_OUTBOX+row[1]+'.ipr') : remove(self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
-                    self.clean()
+                # clean 
+                for mid, row in sendIds :
+                    if cancel : self.ih.delete(mid, True)
+                    if file_exists(self.fsplit.DIR_OUTBOX+row[1]+'.ipr') : remove(self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
+                self.clean()
 
             else :
                 mprint(' ',end='')

@@ -327,7 +327,7 @@ class IniFile:
         """"""
         content = ''
         main    = ''
-        for s in self.dic:
+        for s in sorted(self.dic):
             if section=='*' or section+'.'==s[:len(section)+1]:
                 if s!='main':
                     #~ if section=='*': content += '\n['+s+']\n'
