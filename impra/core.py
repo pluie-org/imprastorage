@@ -759,7 +759,7 @@ class ImpraStorage:
             #~ self.srv.expunge()
             #~ sleep(2)
         self.index.fixDuplicateIds()
-        #~ self.index.fixAccount('gmx')
+        #~ self.index.fixAccount('gmail5')
         encData  = self.index.encrypt() 
         msgIndex = self.mb.buildIndex(encData)        
         if DEBUG.level <= DEBUG.NOTICE : mprint(msgIndex.as_string())
@@ -841,7 +841,7 @@ class ImpraStorage:
             md5     = hash_sha256_file(path)
             mprint()
             Clz.print(' account : '       , Clz.fgn7, False)
-            Clz.print(account             , Clz.fgB7)
+            Clz.print(self.ih.conf.user   , Clz.fgB7)
             Clz.print(' file    : '       , Clz.fgn7, False)
             Clz.print(path                , Clz.fgN1)
             Clz.print(' hash    : '       , Clz.fgn7, False)                
@@ -871,7 +871,16 @@ class ImpraStorage:
                 test    = True
                 for row in hlst['data'] :
                     msg  = self.mb.build(usr,'all',hlst['head'][2],self.fsplit.DIR_OUTBOX+row[1]+'.ipr')
-                    mid  = self.ih.send(msg.as_string(), self.rootBox)
+                    mid  = None
+                    try :
+                        mid  = self.ih.send(msg.as_string(), self.rootBox)
+                    except Exception as e:
+                        Clz.print('Error :', Clz.fgB1, True, False)
+                        mprint(e)
+                        Clz.print('retry', Clz.fgB1)
+                        self.switchFileAccount(account)
+                        mid  = self.ih.send(msg.as_string(), self.rootBox)
+                    
                     if mid is not None :
                         #sleep(0.5)
                         # dont remove

@@ -27,7 +27,7 @@
 #   along with ImpraStorage.  If not, see <http://www.gnu.org/licenses/>.
 
 from impra.core import ImpraConf, ImpraStorage, realpath, dirname, abspath, sep
-from impra.util import IniFile, RuTime, get_file_path, Clz
+from impra.util import IniFile, RuTime, get_file_path, Clz, mprint
 from impra.cli  import Cli
 import sys, os
 
@@ -37,7 +37,7 @@ import sys, os
 #   - write help in colors
 
 if __name__ == '__main__':
-
+    try:
         if not Clz.isUnix:
             if len(sys.argv)>1 and sys.argv[1] == '--run' :
                 Cli.print_header(None)
@@ -47,5 +47,7 @@ if __name__ == '__main__':
             else: Cli(realpath('./')+sep)
         else :
             Cli(get_file_path(realpath('./')+sep))
+    except KeyboardInterrupt as e :        
+        Clz.print('\nKeyboardInterrupt\n', Clz.fgB1)
 
 #python  -O -m compileall impra/*.py
