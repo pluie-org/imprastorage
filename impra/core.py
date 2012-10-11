@@ -553,10 +553,10 @@ class ImpraIndex:
         mprint('SIZE'  +' '*5 , end='')
         mprint('PART'  +' '*2 , end='')
         mprint('TYPE'  +' '*2 , end='')
-        mprint('USER'  +' '*11, end='')
-        mprint('CATEGORY'+' '*(22-addsize))
-        #mprint('CATEGORY'+' '*(22-addsize), end='')
-        #Clz.print('ACCOUNT'+' '*(3), Clz.BG4+Clz.fgB7)
+        mprint('USER'  +' '*7 , end='')
+        #mprint('CATEGORY'+' '*(17-addsize))
+        mprint('CATEGORY'+' '*(17-addsize), end='')
+        Clz.print('ACCOUNT'+' '*(2), Clz.BG4+Clz.fgB7)
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)        
         dbg = DEBUG.active
         DEBUG.active = True        
@@ -571,14 +571,16 @@ class ImpraIndex:
                 Clz.print(' '+str(k)[0:6]+'... '                                 , Clz.fgN2, False)
                 if len(v[self.LABEL])>36 : a = '...'
                 Clz.print(str(v[self.LABEL][:36]+a).ljust(40,' ')                , Clz.fgN7, False)
+                a = ''
                 Clz.print(formatBytes(int(v[self.SIZE]))[:8].rjust(8,' ')+' '*2  , Clz.fgN5, False)
                 Clz.print(str(v[self.PARTS]).rjust(2 ,'0') +' '*2                , Clz.fgN1, False)
                 Clz.print(str(v[self.EXT][:5]).ljust(7,' ')                      , Clz.fgn3, False)
-                Clz.print(self.getUser(str(v[self.USER])).ljust(15  ,' ')        , Clz.fgn7, False)
+                Clz.print(self.getUser(str(v[self.USER])).ljust(11  ,' ')        , Clz.fgn7, False)
                 #~ Clz.print(str(v[self.CATG]).ljust(30 ,' ')                       , Clz.fgN3)
-                Clz.print(str(v[self.CATG]).ljust(30 ,' ')                       , Clz.fgN3, False)
+                if len(v[self.CATG])>22 : a = '...'
+                Clz.print(str(v[self.CATG]+a).ljust(25 ,' ')                     , Clz.fgN3, False)
                 if len(v)-1==self.ACCOUNT:
-                    Clz.print(str(v[self.ACCOUNT]) +' '*2                        , Clz.fgN3)
+                    Clz.print(str(v[self.ACCOUNT]).ljust(14 ,' ')                , Clz.fgN3)
                     if v[self.ACCOUNT] in acc :
                         acc[v[self.ACCOUNT]] += int(v[self.SIZE])
                     else : acc[v[self.ACCOUNT]] = int(v[self.SIZE])
@@ -600,16 +602,16 @@ class ImpraIndex:
         mprint()
         printLineSep(LINE_SEP_CHAR,LINE_SEP_LEN)
 
-        Clz.print(' '*4+'[', Clz.fgB7, False)
-        sep = ''
-        for k in acc:
-            if k!= '':
-                Clz.print(sep+k,Clz.fgB3,False)
-                Clz.print(':',Clz.fgB7,False)
-                Clz.print(formatBytes(acc[k]),Clz.fgB2,False)
-                if sep=='':sep = ','
-        Clz.print(']', Clz.fgB7, False)
-        mprint()
+        #~ Clz.print(' '*4+'[', Clz.fgB7, False)
+        #~ sep = ''
+        #~ for k in acc:
+            #~ if k!= '':
+                #~ Clz.print(sep+k,Clz.fgB3,False)
+                #~ Clz.print(':',Clz.fgB7,False)
+                #~ Clz.print(formatBytes(acc[k]),Clz.fgB2,False)
+                #~ if sep=='':sep = ','
+        #~ Clz.print(']', Clz.fgB7, False)
+        #~ mprint()
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
