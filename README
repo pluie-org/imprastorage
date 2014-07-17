@@ -1,0 +1,24 @@
+ImpraStorage 1.01 (2014-07-18)
+=========================
+
+Install on Archlinux
+-------------------------
+sudo pacman -U http://sourceforge.net/projects/imprastorage/files/imprastorage-1.01/packages/archlinux/kirmah-1.01-1-any.pkg.tar.xz/download
+
+(re)build instruction
+-------------------------
+mkdir /tmp/impra; cd /tmp/impra;
+wget http://sourceforge.net/projects/imprastorage/files/imprastorage-1.01//packages/archlinux/PKGBUILD/download PKGBUILD
+wget http://sourceforge.net/projects/imprastorage/files/imprastorage-1.01//packages/archlinux/imprastorage.install/download imprastorage.install
+makepkg -s;
+
+
+Install on other distrib
+-------------------------
+install pkg depends (look at archlinux PKGBUILD file wich provide usefull informations)
+
+simply untar archive, then launch :
+$ python3 ./imprastorage/impra.py
+$ python3 ./imprastorage/impra-cli.py
+
+you can also use python disutils and setup.py

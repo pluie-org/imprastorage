@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 #-*- coding: utf-8 -*-
+#  kirmah-cli.py
 #  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #
 #  software  : ImpraStorage    <http://kirmah.sourceforge.net/>
@@ -27,28 +28,18 @@
 #  along with ImpraStorage.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from impra.core import ImpraConf, ImpraStorage, realpath, dirname, abspath, sep
-from impra.util import IniFile, RuTime, get_file_path, Clz, mprint
-from impra.cli  import Cli
-import sys, os
+from psr.sys                   import Sys, Const
+from impra.cli                 import Cli
 
-# TODO
-#   - check encrypt marker on crypt file
-#   - readjust cli commands
-#   - write help in colors
+def main():
+    try:
+        c = 0
+        Cli('.'+Sys.sep)
+    except Exception as e :
+        Sys.pwarn((('main : ',(str(e),Sys.CLZ_ERROR_PARAM), ' !'),), True)
+        raise e
+        c = 1
+    return c
 
 if __name__ == '__main__':
-    try:
-        if not Clz.isUnix:
-            if len(sys.argv)>1 and sys.argv[1] == '--run' :
-                Cli.print_header(None)
-                os.system(realpath('./cmd.bat'))
-            elif len(sys.argv)==1 :
-                os.system(realpath('./launcher.bat'))
-            else: Cli(realpath('./')+sep)
-        else :
-            Cli(get_file_path(realpath('./')+sep))
-    except KeyboardInterrupt as e :        
-        Clz.print('\nKeyboardInterrupt\n', Clz.fgB1)
-
-#python  -O -m compileall impra/*.py
+    Sys.exit(main())

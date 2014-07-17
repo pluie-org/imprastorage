@@ -1,33 +1,35 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-#                                                                               #
-#   software  : ImpraStorage <http://imprastorage.sourceforge.net/>             #
-#   version   : 0.8                                                             #
-#   date      : 2012                                                            #
-#   licence   : GPLv3.0   <http://www.gnu.org/licenses/>                        #
-#   author    : a-Sansara <http://www.a-sansara.net/>                           #
-#   copyright : pluie.org <http://www.pluie.org/>                               #
-#                                                                               #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#-*- coding: utf-8 -*-
+#  impra/cryot.py
+#  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #
-#   This file is part of ImpraStorage.
+#  software  : ImpraStorage    <http://kirmah.sourceforge.net/>
+#  version   : 1.01
+#  date      : 2014
+#  licence   : GPLv3.0   <http://www.gnu.org/licenses/>
+#  author    : a-Sansara <[a-sansara]at[clochardprod]dot[net]>
+#  copyright : pluie.org <http://www.pluie.org/>
 #
-#   ImpraStorage is free software (free as in speech) : you can redistribute it 
-#   and/or modify it under the terms of the GNU General Public License as 
-#   published by the Free Software Foundation, either version 3 of the License, 
-#   or (at your option) any later version.
+#  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #
-#   ImpraStorage is distributed in the hope that it will be useful, but WITHOUT 
-#   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
-#   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
-#   more details.
+#  This file is part of ImpraStorage.
 #
-#   You should have received a copy of the GNU General Public License
-#   along with ImpraStorage.  If not, see <http://www.gnu.org/licenses/>.
+#  ImpraStorage is free software (free as in speech) : you can redistribute it
+#  and/or modify it under the terms of the GNU General Public License as
+#  published by the Free Software Foundation, either version 3 of the License,
+#  or (at your option) any later version.
+#
+#  ImpraStorage is distributed in the hope that it will be useful, but WITHOUT
+#  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+#  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+#  more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with ImpraStorage.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# ~~ package crypt ~~
+# ~~ module crypt ~~
 
 from base64     import urlsafe_b64encode, b64decode
 from binascii   import b2a_base64, a2b_base64

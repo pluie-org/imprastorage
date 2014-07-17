@@ -1,30 +1,31 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-#                                                                               #
-#   software  : ImpraStorage <http://imprastorage.sourceforge.net/>             #
-#   version   : 0.8                                                             #
-#   date      : 2012                                                            #
-#   licence   : GPLv3.0   <http://www.gnu.org/licenses/>                        #
-#   author    : a-Sansara <http://www.a-sansara.net/>                           #
-#   copyright : pluie.org <http://www.pluie.org/>                               #
-#                                                                               #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#-*- coding: utf-8 -*-
+#  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #
-#   This file is part of ImpraStorage.
+#  software  : ImpraStorage    <http://kirmah.sourceforge.net/>
+#  version   : 1.01
+#  date      : 2014
+#  licence   : GPLv3.0   <http://www.gnu.org/licenses/>
+#  author    : a-Sansara <[a-sansara]at[clochardprod]dot[net]>
+#  copyright : pluie.org <http://www.pluie.org/>
 #
-#   ImpraStorage is free software (free as in speech) : you can redistribute it 
-#   and/or modify it under the terms of the GNU General Public License as 
-#   published by the Free Software Foundation, either version 3 of the License, 
-#   or (at your option) any later version.
+#  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #
-#   ImpraStorage is distributed in the hope that it will be useful, but WITHOUT 
-#   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
-#   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
-#   more details.
+#  This file is part of ImpraStorage.
 #
-#   You should have received a copy of the GNU General Public License
-#   along with ImpraStorage.  If not, see <http://www.gnu.org/licenses/>.
+#  ImpraStorage is free software (free as in speech) : you can redistribute it
+#  and/or modify it under the terms of the GNU General Public License as
+#  published by the Free Software Foundation, either version 3 of the License,
+#  or (at your option) any later version.
+#
+#  ImpraStorage is distributed in the hope that it will be useful, but WITHOUT
+#  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+#  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+#  more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with ImpraStorage.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 import sys
 from cx_Freeze import setup, Executable
@@ -59,9 +60,9 @@ if 'bdist_msi' in sys.argv:
         )
     setup(
             name="ImpraStorage.exe",
-            version="0.7",
+            version="1.01",
             author="a-Sansara",
-            description="ImpraStorage provided a private imap access to store large files. License GNU GPLv3 Copyright 2012 pluie.org",
+            description="ImpraStorage provided a private imap access to store large files. License GNU GPLv3 Copyright 2014 pluie.org",
             executables=[exe],
             options = {"build_exe": build_exe_options},
             scripts=[
@@ -71,7 +72,7 @@ if 'bdist_msi' in sys.argv:
 else :
 
 	setup(  name = "ImpraStorage",
-	        version = "0.7",
+	        version = "1.01",
 	        description = "ImpraStorage provided a  private imap access to store large files",
 	        options = {"build_exe": build_exe_options},
 	        executables = [Executable("imprastorage.py", base=base)])

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 #-*- coding: utf-8 -*-
+#  setup.py
 #  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #
 #  software  : ImpraStorage    <http://kirmah.sourceforge.net/>
@@ -27,28 +28,26 @@
 #  along with ImpraStorage.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from impra.core import ImpraConf, ImpraStorage, realpath, dirname, abspath, sep
-from impra.util import IniFile, RuTime, get_file_path, Clz, mprint
-from impra.cli  import Cli
-import sys, os
+from impra             import conf
+from distutils.core     import setup
+import glob
+import os
 
-# TODO
-#   - check encrypt marker on crypt file
-#   - readjust cli commands
-#   - write help in colors
+# I18N
+I18NFILES = []
 
-if __name__ == '__main__':
-    try:
-        if not Clz.isUnix:
-            if len(sys.argv)>1 and sys.argv[1] == '--run' :
-                Cli.print_header(None)
-                os.system(realpath('./cmd.bat'))
-            elif len(sys.argv)==1 :
-                os.system(realpath('./launcher.bat'))
-            else: Cli(realpath('./')+sep)
-        else :
-            Cli(get_file_path(realpath('./')+sep))
-    except KeyboardInterrupt as e :        
-        Clz.print('\nKeyboardInterrupt\n', Clz.fgB1)
+for filepath in glob.glob('resources/locale/*/LC_MESSAGES/*.mo'):
+    lang = filepath[len('resources/locale/'):]
+    targetpath = os.path.dirname(os.path.join('share/locale',lang))
+    I18NFILES.append((targetpath, [filepath]))
 
-#python  -O -m compileall impra/*.py
+setup(name      = conf.PRG_NAME,
+      version   = conf.PRG_VERS,
+      packages  = [conf.PRG_PACKAGE, 'psr'],
+      scripts   = ['scripts/'+conf.PRG_SCRIPT, 'scripts/'+conf.PRG_CLI_NAME],
+      data_files= [('/usr/share/pixmaps/'+conf.PRG_PACKAGE    , glob.glob('resources/pixmaps/'+conf.PRG_PACKAGE+'/*.png')),
+                   ('/usr/share/applications'                 , ['resources/'+conf.PRG_PACKAGE+'.desktop']),
+                   ('/usr/share/'+conf.PRG_PACKAGE            , glob.glob('resources/'+conf.PRG_PACKAGE+'/LICENSE')),
+                   ('/usr/share/'+conf.PRG_PACKAGE+'/glade'   , glob.glob('resources/'+conf.PRG_PACKAGE+'/glade/*.glade'))]
+                   + I18NFILES
+      )

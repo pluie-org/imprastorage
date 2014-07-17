@@ -1,0 +1,12 @@
+
+[Desktop Entry]
+Name=ImpraStorage
+Comment=ImpraStorage provided a  private imap access to store large files
+Version=2.18
+Icon=/usr/share/pixmaps/impra/impra.png
+Exec=impra
+Terminal=false
+Type=Application
+StartupNotify=false
+MimeType=
+Categories=System;
