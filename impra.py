@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #-*- coding: utf-8 -*-
-#  kirmah.py
+#  impra.py
 #  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #
 #  software  : ImpraStorage    <http://kirmah.sourceforge.net/>
