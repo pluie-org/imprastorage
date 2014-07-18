@@ -116,7 +116,6 @@ class Cli(AbstractCli):
                 Cli.print_help()
 
             elif a[0] in ['add','conf','import','info', 'edit','export','get','list','remove','search'] :
-
                 app = CliApp(self.HOME, path, self.parser, Cli, a, o)
 
                 if a[0]=='add':

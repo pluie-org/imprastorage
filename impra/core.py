@@ -467,7 +467,7 @@ class ImpraStorage:
         done = False
         if len(ids) >= row[self.idxu.index.PARTS]:
             for i, uid in enumerate(ids):
-                d   = Sys.datetime.now()                    
+                d   = Sys.datetime.now()              
                 self.idxu.ih.getAttachment(uid, self.inbox, True)
                 
                 Sys.pwlog([(' part '                , Const.CLZ_0),

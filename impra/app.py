@@ -121,7 +121,7 @@ class ImpraThread(Thread, IdleObject):
                            (label.ljust(Const.LINE_SEP_LEN, ' ')   , Const.CLZ_INIT  , True),
                            (Const.LINE_SEP_CHAR*Const.LINE_SEP_LEN , Const.CLZ_0     , True)])
                 
-                self.impst = ImpraStorage(self.conf)
+                self.impst = ImpraStorage(self.conf, wkdir='.'+Sys.sep+'wk'+Sys.sep)
 
             done = True
         except Exception as e :

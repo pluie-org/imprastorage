@@ -34,7 +34,7 @@ from impra.cli                 import Cli
 def main():
     try:
         c = 0
-        Cli('.'+Sys.sep)
+        Cli('.'+Sys.sep+'wk'+Sys.sep)
     except Exception as e :
         Sys.pwarn((('main : ',(str(e),Sys.CLZ_ERROR_PARAM), ' !'),), True)
         raise e

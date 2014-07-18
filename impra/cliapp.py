@@ -73,7 +73,7 @@ class CliApp:
         else :
             if not (len(self.a)>0 and self.a[0]=='conf') :
                 self.ini     = KiniFile('impra2.ini')                
-                self.impst   = ImpraStorage(ImpraConf(self.ini))
+                self.impst   = ImpraStorage(ImpraConf(self.ini),wkdir=path)
                 self.uid     = self.impst.idxu.conf.get('uid' ,'index')
                 self.date    = self.impst.idxu.conf.get('date','index')
                 self.account = self.impst.idxu.conf.get('user','imap')
